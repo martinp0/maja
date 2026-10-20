@@ -50,9 +50,8 @@ class ApiSettings(HomeGeofenceSettings):
     app_session_secret: SecretStr | None = None
 
     # Passkeys (WebAuthn). RP ID = doména bez schématu/portu; origin = přesná adresa appky.
-    # Víc originů čárkami (např. i Tailscale adresa – ta ale má jiné RP ID, takže passkey tam nepůjde).
-    # Default jen pro lokální vývoj. V produkci nastav WEBAUTHN_RP_ID / WEBAUTHN_ORIGIN v .env
-    # na doménu, kde appka běží (např. maja.example.com / https://maja.example.com).
+    # Víc originů čárkami. Výchozí je localhost; na vlastní doméně obojí nastav v .env
+    # (passkey funguje jen na tom originu, na kterém vznikl).
     webauthn_rp_id: str = "localhost"
     webauthn_origin: str = "http://localhost:8090"
     webauthn_rp_name: str = "Mája"

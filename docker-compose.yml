@@ -1,7 +1,7 @@
 # Tractive ingestor + API/PWA + lokální Postgres/PostGIS (RPi5 / arm64 i amd64).
 #
 #   cp .env.example .env            # vyplnit TRACTIVE_* a POSTGRES_*
-#   docker compose up -d
+#   docker compose up -d --build   # první běh sestaví i web (PWA) uvnitř image api
 #   docker compose run --rm ingestor init-db    # jednou, při prvním spuštění
 #   docker compose logs -f ingestor
 #   # appka (PWA + /api): http://<API_PUBLISH_ADDR>:8090/
@@ -104,7 +104,8 @@ services:
       # Login do appky (heslo) + klíč session cookie – jen v .env. Prázdné APP_PIN = bez přihlášení!
       APP_PIN: ${APP_PIN:-}
       APP_SESSION_SECRET: ${APP_SESSION_SECRET:-}
-      # Passkeys (Face ID): RP ID = doména appky, origin = přesná adresa (víc čárkami)
+      # Passkeys (Face ID): RP ID = doména bez schématu, origin = přesná adresa (víc čárkami).
+      # Výchozí je localhost. Na vlastní doméně nastav obojí v .env — produkční Pi to tak dělá.
       WEBAUTHN_RP_ID: ${WEBAUTHN_RP_ID:-localhost}
       WEBAUTHN_ORIGIN: ${WEBAUTHN_ORIGIN:-http://localhost:8090}
       # Web Push (VAPID) – klíče jen v .env (`docker compose run --rm ingestor gen-vapid`). Prázdné = vypnuto.

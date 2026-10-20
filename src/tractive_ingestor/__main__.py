@@ -1,4 +1,4 @@
-"""Entrypoint: `python -m tractive_ingestor [run|check|init-db|enqueue|gen-vapid]`.
+"""Entrypoint: `python -m tractive_ingestor [run|check|init-db|enqueue|gen-vapid|seed-demo]`.
 
     python -m tractive_ingestor gen-vapid   # nové VAPID klíče pro Web Push -> řádky do .env
 
@@ -40,10 +40,15 @@ def main(argv: list[str] | None = None) -> int:
     from .push import DEFAULT_VAPID_SUBJECT
 
     parser = argparse.ArgumentParser(prog="tractive_ingestor", description="Tractive -> Postgres/Supabase ingestor")
-    sub = parser.add_subparsers(dest="command", metavar="{run,check,init-db,enqueue,gen-vapid}")
+    sub = parser.add_subparsers(dest="command", metavar="{run,check,init-db,enqueue,gen-vapid,seed-demo}")
     sub.add_parser("run", help="služba (default)")
     sub.add_parser("check", help="login + snapshot bez DB")
     sub.add_parser("init-db", help="aplikovat schema.sql")
+    demo = sub.add_parser(
+        "seed-demo",
+        help="vložit fiktivní fenu v Central Parku (ne účet Tractive, ne adresa domova)",
+    )
+    demo.add_argument("--clear", action="store_true", help="jen smazat ukázkovou fenu DEMO-LUNA")
     enq = sub.add_parser("enqueue", help="zařadit povel do fronty (odešle ho běžící služba)")
     enq.add_argument("tracker_id")
     enq.add_argument("cmd", metavar="command", choices=sorted(COMMAND_ALIASES), help="live | buzzer | led")
@@ -61,6 +66,19 @@ def main(argv: list[str] | None = None) -> int:
     settings = get_settings()
     configure_logging(settings.log_level, settings.log_format)
     log = structlog.get_logger("tractive_ingestor")
+
+    if command == "seed-demo":
+        if not settings.dsn:
+            log.error("config_error", error="DATABASE_URL není nastavené")
+            return 2
+        from .demo import seed_demo
+
+        try:
+            sys.stdout.write(asyncio.run(seed_demo(settings.dsn, clear=args.clear)))
+        except Exception as exc:
+            log.error("seed_demo_failed", error=repr(exc))
+            return 1
+        return 0
 
     coro = {
         "run": _run_service,

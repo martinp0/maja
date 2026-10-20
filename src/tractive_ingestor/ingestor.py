@@ -113,6 +113,17 @@ class Ingestor:
         # backfillu (může trvat minuty), /readyz je do připojení kanálu 503.
         await self._start_health_server()
         try:
+            if self.s.demo_mode:
+                # Bez účtu Tractive: proces zůstane běžet, ať Docker nerecykluje kontejner
+                # kvůli odmítnutému loginu. Polohy ber jen z DB (seed-demo).
+                log.warning(
+                    "ingestor.demo_mode",
+                    hint="DEMO_MODE=1: přihlášení k Tractive se přeskakuje. V mapě jsou jen data z databáze.",
+                )
+                self.health.set_phase("streaming")
+                self.health.mark_unauthenticated("demo mode: no Tractive session")
+                await self._stop.wait()
+                return
             self.health.set_phase("login")
             try:
                 self.client = await self._login()

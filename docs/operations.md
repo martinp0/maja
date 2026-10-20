@@ -204,7 +204,7 @@ API: `GET /api/push/vapid-public-key`, `POST /api/push/subscribe|unsubscribe|tes
 
 Heslo (`APP_PIN`) zůstává jako záloha. Po přihlášení heslem appka nabídne **Zapnout Face ID** (WebAuthn passkey,
 platform authenticator, userVerification=required); karta „Přihlášení a Face ID“ ukazuje a maže passkeys.
-Passkey funguje jen na `WEBAUTHN_RP_ID` (default `localhost`; v produkci např. `maja.example.com`) – ne přes Tailscale adresu.
+Passkey funguje jen na `WEBAUTHN_RP_ID` (v Dockeru bez nastavení `localhost`, tedy `http://localhost:8090`) – ne na jiné adrese, než na které passkey vznikl. Na Tailscale IP nebo v LAN je potřeba HTTPS a origin v `.env`.
 Endpointy: `POST /api/webauthn/register/options|verify` (jen přihlášený), `POST /api/webauthn/login/options|verify`
 (veřejné, stejný rate limiter jako `/api/login`), `GET /api/webauthn/credentials`,
 `POST /api/webauthn/credentials/{id}/delete`; `/api/me` vrací `passkey_count`. Tabulka `webauthn_credentials`

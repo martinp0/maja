@@ -58,7 +58,7 @@ function describe(e: unknown): string {
   const name = (e as Error)?.name;
   if (name === "NotAllowedError") return "Zrušeno nebo vypršel čas.";
   if (name === "InvalidStateError") return "Na tomhle zařízení už Face ID zapnuté je.";
-  if (name === "SecurityError") return "Face ID funguje jen na nastavené doméně aplikace.";
+  if (name === "SecurityError") return "Face ID funguje jen na HTTPS (na tomto počítači stačí http://localhost).";
   return (e as Error)?.message || "Neznámá chyba";
 }
 

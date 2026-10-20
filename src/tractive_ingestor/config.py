@@ -82,6 +82,10 @@ class Settings(HomeGeofenceSettings):
         extra="ignore",
     )
 
+    # DEMO_MODE=1: nepřihlašovat se k Tractive (UI jen z databáze, viz seed-demo).
+    # Výchozí vypnuto — produkční nasazení se nemění, dokud to není v .env.
+    demo_mode: bool = False
+
     # Tractive – jen e-mail/heslo účty (Apple/Google sign-in nefunguje)
     tractive_email: str = ""
     # SecretStr: heslo se neobjeví v repr()/logu

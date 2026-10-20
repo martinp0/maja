@@ -7,11 +7,39 @@ home/away alerts, passphrase and passkey login).
 
 The phone never talks to Tractive. It talks to your server.
 
-![Map with the day's track](docs/screenshots/map.png)
+## Quick start
 
-![Status sheet](docs/screenshots/sheet.png)
+Step-by-step (env vars, demo data, logs, backups, your own domain):
+**[Run it locally](docs/getting-started.md)** · **[Spusť to lokálně (česky)](docs/getting-started.cs.md)**
 
-Screenshots above are placeholders. See [docs/screenshots/README.md](docs/screenshots/README.md).
+```bash
+git clone https://github.com/martinp0/maja
+cd maja
+cp .env.example .env && chmod 600 .env
+# Edit TRACTIVE_EMAIL, TRACTIVE_PASSWORD, and POSTGRES_PASSWORD.
+docker compose up -d --build
+docker compose run --rm ingestor init-db
+```
+
+Open <http://localhost:8090>. The first build compiles the web app inside Docker; you do not run `npm` yourself.
+
+The sample Tractive password in `.env.example` is fake. The site still opens, and the ingestor will keep failing login until you put in a real email and password (or turn on demo mode). With no collar yet, set `DEMO_MODE=1` and run `docker compose run --rm ingestor seed-demo`. That inserts a fictional dog, Luna, on a walk in Central Park.
+
+## Screenshots
+
+These are that demo, captured locally. The dog's name is Luna. The track is around Bethesda Fountain in Central Park, New York — a public park, not a home, and not data from a Tractive account.
+
+![Phone map, light, Luna in Central Park](docs/screenshots/map-light.webp)
+
+![Phone map, dark](docs/screenshots/map-dark.webp)
+
+![Desktop layout, sidebar beside the map](docs/screenshots/desktop.webp)
+
+![History of leaving and coming back](docs/screenshots/history.webp)
+
+![Settings](docs/screenshots/settings.webp)
+
+![Passphrase login](docs/screenshots/login.webp)
 
 ## Unofficial
 
@@ -31,26 +59,23 @@ Do not commit the location history it stores.
 | `src/tractive_api` + `web/` | Read API and the Mája PWA, one container |
 | `docker-compose.yml` | Postgres/PostGIS + ingestor + API, aimed at a Raspberry Pi |
 | `deploy/` | Docker and systemd notes for a Pi |
+| `docs/getting-started.md` | Run it on your own computer |
 
 Deeper operator notes (Czech): [docs/operations.md](docs/operations.md).
 
 ## Self-hosting
 
-You need Docker with Compose, a Tractive account that can log in with email
-and password (Apple or Google sign-in will not work), and an active tracker.
-Python 3.11+ is enough if you would rather not use Docker.
+Follow **[docs/getting-started.md](docs/getting-started.md)** (or the [Czech version](docs/getting-started.cs.md)). Short version:
 
 ```bash
-git clone https://github.com/martinp0/maja.git
+git clone https://github.com/martinp0/maja
 cd maja
 cp .env.example .env && chmod 600 .env
-# Fill TRACTIVE_EMAIL, TRACTIVE_PASSWORD, POSTGRES_PASSWORD.
-# Set APP_PIN and APP_SESSION_SECRET before exposing the app.
-# Optional: HOME_LAT, HOME_LON, VAPID_* (see below).
-docker compose up -d
+docker compose up -d --build
 docker compose run --rm ingestor init-db
-docker compose logs -f ingestor
 ```
+
+`docker compose up -d --build` builds the API image and the web app. You do not need a separate `web/dist` for a normal computer.
 
 The app listens on `127.0.0.1:8090` unless you set `API_PUBLISH_ADDR` in `.env`.
 Do not publish it on `0.0.0.0` unless a login passphrase is set. A Tailscale
@@ -93,7 +118,8 @@ with placeholders.
 | `APP_SESSION_SECRET` | Cookie signing key. `openssl rand -hex 32`. |
 | `HOME_LAT`, `HOME_LON` | Home geofence. Empty disables it. Never commit these. |
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | Web Push. Generate with `docker compose run --rm --no-deps ingestor gen-vapid`. |
-| `WEBAUTHN_RP_ID`, `WEBAUTHN_ORIGIN` | Passkey domain. Must match the site you actually open. |
+| `WEBAUTHN_RP_ID`, `WEBAUTHN_ORIGIN` | Passkey host. Default `localhost` and `http://localhost:8090`. On your own domain set both to that exact site. |
+| `DEMO_MODE` | `1` skips the Tractive login so you can look at `seed-demo` data. Leave unset for a real collar. |
 | `API_PUBLISH_ADDR` | Host address for port 8090. Default `127.0.0.1`. |
 
 `VAPID_SUBJECT` defaults to `mailto:you@example.com` when unset. Set a real

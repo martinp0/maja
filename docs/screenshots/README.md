@@ -1,14 +1,18 @@
 # Screenshots
 
-Add public screenshots of Mája here before announcing the release. Use a
-demo account and fictional coordinates. Do not capture a real home, a real
-track, or the Tailscale address bar.
+Pictures in this folder are a **local demo**, not a real collar.
 
-Suggested files:
+- Dog: Luna (`DEMO-LUNA`), inserted by `python -m tractive_ingestor seed-demo`
+- Place: a walk around Bethesda Fountain in Central Park, New York
+- Not a home address and not a Tractive payload
 
-- `map.png` — map with the dog marker and the day track
-- `sheet.png` — the status sheet (battery, last fix, commands)
-- `login.png` — the passphrase screen
+| File | What |
+|---|---|
+| `map-light.webp` | iPhone-size map, light |
+| `map-dark.webp` | iPhone-size map, dark |
+| `desktop.webp` | Window at least 900 px wide, sidebar beside the map |
+| `history.webp` | Leave / return list |
+| `settings.webp` | Settings dialog |
+| `login.webp` | Passphrase screen |
 
-The root README links these paths. Until the files exist, those links are
-placeholders.
+Regenerate from a machine that already runs the stack, with `DEMO_MODE=1`, the park `HOME_LAT` / `HOME_LON` printed by `seed-demo`, and a passphrase in `APP_PIN`. Do not capture a real track or a real address bar hostname.
