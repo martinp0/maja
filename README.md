@@ -131,4 +131,4 @@ that contain passwords or locations.
 
 Source code is [MIT](LICENSE), copyright Martin Pohl, 2026.
 Map data, dependencies, and the PostGIS image keep their own licenses.
-See the note at the bottom of [LICENSE](LICENSE).
+See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
