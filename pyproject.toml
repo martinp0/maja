@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tractive-ingestor"
+version = "0.1.0"
+description = "Single Tractive client: login, realtime channel, backfill, Postgres/Supabase storage + read/command API and PWA."
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.11"
+dependencies = [
+    "aiotractive>=1.3,<2",
+    "asyncpg>=0.29",
+    "pydantic-settings>=2.2",
+    "structlog>=24.1",
+    "python-dotenv>=1.0",
+    "pywebpush>=2.0,<3",
+]
+
+[project.optional-dependencies]
+# Read + command API a servírování PWA (src/tractive_api). Bez uvicorn[standard] – na arm64 netřeba nic kompilovat.
+api = [
+    "fastapi>=0.115",
+    "uvicorn>=0.30",
+    "webauthn>=2.2,<4",
+]
+# Testy API (fastapi.testclient potřebuje httpx)
+dev = [
+    "fastapi>=0.115",
+    "uvicorn>=0.30",
+    "webauthn>=2.2,<4",
+    "httpx>=0.27",
+    "pytest>=8",
+]
+
+[project.scripts]
+tractive-ingestor = "tractive_ingestor.__main__:main"
+tractive-api = "tractive_api.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+tractive_ingestor = ["schema.sql"]

@@ -1,0 +1,128 @@
+# Tractive ingestor + API/PWA + lokální Postgres/PostGIS (RPi5 / arm64 i amd64).
+#
+#   cp .env.example .env            # vyplnit TRACTIVE_* a POSTGRES_*
+#   docker compose up -d
+#   docker compose run --rm ingestor init-db    # jednou, při prvním spuštění
+#   docker compose logs -f ingestor
+#   # appka (PWA + /api): http://<API_PUBLISH_ADDR>:8090/
+#
+# Supabase místo lokální DB: nastav v .env INGESTOR_DATABASE_URL=<supabase connection string>
+# a spouštěj jen ingestor:  docker compose up -d --no-deps ingestor
+
+name: tractive
+
+services:
+  db:
+    image: imresamu/postgis:16-3.4
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-tractive}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Nastav POSTGRES_PASSWORD v .env}
+      POSTGRES_DB: ${POSTGRES_DB:-tractive}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    # Port ven nepublikujeme; pro přístup z jiného stroje (přes Tailscale) odkomentuj:
+    # ports:
+    #   - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  ingestor:
+    build: .
+    image: tractive-ingestor:latest
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      # `environment` má přednost před env_file → DATABASE_URL z .env se tady přepíše.
+      # POSTGRES_PASSWORD nesmí obsahovat znaky, které by rozbily URL (@ : / ? #).
+      DATABASE_URL: ${INGESTOR_DATABASE_URL:-postgresql://${POSTGRES_USER:-tractive}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-tractive}}
+      LOG_FORMAT: json
+      FIXTURES_DIR: /app/fixtures
+      # Health server uvnitř kontejneru: poslouchat na všech rozhraních kontejneru,
+      # port pevně 8080 (mapování na host řeší `ports` níže).
+      HEALTH_HOST: 0.0.0.0
+      HEALTH_PORT: "8080"
+    # HEALTHCHECK (/healthz) je definovaný v Dockerfile → `docker compose ps` ukáže (healthy).
+    # Readiness (/readyz) je pro externí monitoring.
+    ports:
+      # Default jen na loopback Pi:  curl http://127.0.0.1:8080/readyz
+      # Vzdálený monitoring přes Tailscale: v .env nastav HEALTH_PUBLISH_ADDR na Tailscale IP
+      # Pi (`tailscale ip -4`, 100.x.y.z) → http://<pi>.<tailnet>.ts.net:8080/readyz.
+      # 0.0.0.0 nepoužívej – port by byl vidět v celé LAN.
+      - "${HEALTH_PUBLISH_ADDR:-127.0.0.1}:${HEALTH_PUBLISH_PORT:-8080}:8080"
+    volumes:
+      - fixtures:/app/fixtures
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  api:
+    # FastAPI (/api/*) + PWA (web/dist na /) v jednom kontejneru; PWA se staví v Dockerfile.api (stage `web`).
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+      args:
+        VITE_API_BASE: ${VITE_API_BASE:-}
+      # Málo RAM na Pi na Node/Vite build (~0,5 GB)? Postav PWA jinde (`cd web && npm ci && npm run build`),
+      # zkopíruj web/dist na Pi a odkomentuj → stage `web` se přeskočí:
+      # additional_contexts:
+      #   webdist: ./web/dist
+    image: tractive-api:latest
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    # Záměrně BEZ env_file: API nepotřebuje heslo k Tractive, takže ho do kontejneru vůbec nedáváme.
+    # Hodnoty níže se interpolují z .env v adresáři projektu.
+    environment:
+      DATABASE_URL: ${INGESTOR_DATABASE_URL:-postgresql://${POSTGRES_USER:-tractive}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-tractive}}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      LOG_FORMAT: json
+      API_HOST: 0.0.0.0
+      API_PORT: "8090"
+      API_WEB_DIST: /app/web/dist
+      API_CORS_ORIGINS: ${API_CORS_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173}
+      API_DB_POOL_MAX: ${API_DB_POOL_MAX:-3}
+      # Geofence doma/venku – hodnoty jen z .env (souřadnice domova NIKDY do gitu). Prázdné = vypnuto.
+      HOME_LAT: ${HOME_LAT:-}
+      HOME_LON: ${HOME_LON:-}
+      HOME_RADIUS_M: ${HOME_RADIUS_M:-80}
+      GEOFENCE_DEBOUNCE_LEAVE_S: ${GEOFENCE_DEBOUNCE_LEAVE_S:-120}
+      GEOFENCE_DEBOUNCE_RETURN_S: ${GEOFENCE_DEBOUNCE_RETURN_S:-60}
+      GEOFENCE_MAX_ACCURACY_M: ${GEOFENCE_MAX_ACCURACY_M:-150}
+      GEOFENCE_ESCAPE_M: ${GEOFENCE_ESCAPE_M:-300}
+      GEOFENCE_TRUST_TRACTIVE_HOME: ${GEOFENCE_TRUST_TRACTIVE_HOME:-true}
+      # Login do appky (heslo) + klíč session cookie – jen v .env. Prázdné APP_PIN = bez přihlášení!
+      APP_PIN: ${APP_PIN:-}
+      APP_SESSION_SECRET: ${APP_SESSION_SECRET:-}
+      # Passkeys (Face ID): RP ID = doména appky, origin = přesná adresa (víc čárkami)
+      WEBAUTHN_RP_ID: ${WEBAUTHN_RP_ID:-localhost}
+      WEBAUTHN_ORIGIN: ${WEBAUTHN_ORIGIN:-http://localhost:8090}
+      # Web Push (VAPID) – klíče jen v .env (`docker compose run --rm ingestor gen-vapid`). Prázdné = vypnuto.
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:you@example.com}
+    ports:
+      # Default jen loopback Pi. Telefon přes Tailscale: v .env API_PUBLISH_ADDR=<tailscale ip -4> (100.x.y.z)
+      # → http://<pi>.<tailnet>.ts.net:8090/ . 0.0.0.0 NEpoužívej – API zatím nemá autentizaci.
+      - "${API_PUBLISH_ADDR:-127.0.0.1}:${API_PUBLISH_PORT:-8090}:8090"
+    # Pi má 2 GB RAM; uvicorn + FastAPI reálně ~60–90 MB
+    mem_limit: 256m
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  pgdata:
+  fixtures:

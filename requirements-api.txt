@@ -1,0 +1,5 @@
+# Navíc k requirements.txt pro API (src/tractive_api) – Dockerfile.api
+fastapi>=0.115
+uvicorn>=0.30
+# Passkeys (WebAuthn) – py_webauthn; čisté wheely (cryptography, cbor2, pyOpenSSL) i pro arm64
+webauthn>=2.2,<4

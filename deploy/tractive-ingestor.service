@@ -1,0 +1,77 @@
+# systemd unit pro běh BEZ Dockeru (holý venv na RPi5).
+# Instalace: viz deploy/README-rpi5.md
+#   sudo cp deploy/tractive-ingestor.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now tractive-ingestor
+#
+# Logy jdou do journald (stdout/stderr):  journalctl -u tractive-ingestor -f
+# Doporučeno LOG_FORMAT=json v .env (strukturované logy, dobře se filtrují).
+#
+# Health: služba poslouchá na HEALTH_HOST:HEALTH_PORT (default 127.0.0.1:8080):
+#   curl -fsS http://127.0.0.1:8080/healthz   # liveness
+#   curl -fsS http://127.0.0.1:8080/readyz    # readiness (503 = Tractive stream nežije)
+# Pro monitoring přes Tailscale nastav v .env HEALTH_HOST=<Tailscale IP Pi> (100.x.y.z);
+# pak je ale nutné After=tailscaled.service (jinak bind selže, IP ještě neexistuje).
+# WatchdogSec= záměrně NEpoužíváme: vyžaduje sd_notify("WATCHDOG=1") z procesu, což
+# ingestor (zatím) nedělá – systemd by službu každých N s zabil. Liveness hlídá
+# Restart=always (pád procesu) a readiness externí monitoring přes /readyz.
+# Aby logy přežily reboot: sudo mkdir -p /var/log/journal && sudo systemctl restart systemd-journald
+
+[Unit]
+Description=Tractive ingestor (Tractive API -> Postgres/Supabase)
+Documentation=https://github.com/martinp0/maja
+Wants=network-online.target
+After=network-online.target
+# Health server bindovaný na Tailscale IP (HEALTH_HOST=100.x.y.z) potřebuje tailscaled:
+# After=network-online.target tailscaled.service
+# Pokud běží lokální Postgres na stejném stroji, odkomentuj:
+# After=network-online.target postgresql.service
+StartLimitIntervalSec=300
+StartLimitBurst=10
+
+[Service]
+Type=simple
+User=tractive
+Group=tractive
+WorkingDirectory=/opt/tractive-ingestor
+EnvironmentFile=/opt/tractive-ingestor/.env
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/opt/tractive-ingestor/.venv/bin/python -m tractive_ingestor run
+Restart=always
+RestartSec=10
+# Graceful shutdown přes SIGTERM (ingestor ho obsluhuje)
+KillSignal=SIGTERM
+TimeoutStopSec=30
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=tractive-ingestor
+
+# --- Hardening ---
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+# MemoryDenyWriteExecute=true  # CPython je OK, ale ctypes/libffi občas potřebuje W+X → zapnout až po ověření
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+CapabilityBoundingSet=
+AmbientCapabilities=
+UMask=0077
+# Jediné místo, kam ingestor zapisuje: FIXTURES_DIR (./fixtures v .env.example)
+ReadWritePaths=/opt/tractive-ingestor/fixtures
+
+[Install]
+WantedBy=multi-user.target

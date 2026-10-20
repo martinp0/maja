@@ -1,0 +1,8 @@
+# Runtime závislosti ingestoru (ověřeno na Python 3.13, cílově 3.11+)
+aiotractive>=1.3,<2
+asyncpg>=0.29
+pydantic-settings>=2.2
+structlog>=24.1
+python-dotenv>=1.0
+# Web Push (VAPID) – čistý Python + cryptography (arm64 wheel), bez kompilace
+pywebpush>=2.0,<3

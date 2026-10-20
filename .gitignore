@@ -1,0 +1,32 @@
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+node_modules/
+web/dist/
+web/dev-dist/
+
+# Secrets and local config. Examples stay tracked.
+.env
+.env.*
+!.env.example
+*.pem
+*.p8
+*.key
+*.jks
+*.keystore
+*.mobileprovision
+AuthKey_*
+secrets/
+
+# Zachycené payloady obsahují přesnou polohu psa (= domova) – necommitovat
+fixtures/*.jsonl
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.DS_Store
+
+/data/

@@ -1,0 +1,90 @@
+# syntax=docker/dockerfile:1
+# Tractive API (FastAPI) + PWA (web/dist) v jednom image – amd64 i arm64 (Raspberry Pi 5).
+# Build:  docker compose build api      (nebo: docker build -f Dockerfile.api -t tractive-api .)
+# Run:    docker compose up -d api      → http://<API_PUBLISH_ADDR>:8090/
+
+ARG PYTHON_VERSION=3.13
+ARG NODE_VERSION=22
+
+# ---------- web: build PWA (Vite) ----------
+# --platform=$BUILDPLATFORM: dist je čisté HTML/JS/CSS, takže při cross-buildu (buildx na Macu)
+# běží Node nativně a neemuluje se. Na Pi je to prostě arm64.
+# bookworm-slim (glibc), ne alpine: rolldown (Vite 8) má nativní binding a gnu varianta je nejjistější.
+FROM --platform=$BUILDPLATFORM node:${NODE_VERSION}-bookworm-slim AS web
+
+WORKDIR /web
+COPY web/package.json web/package-lock.json ./
+RUN npm ci --no-audit --no-fund
+COPY web/ ./
+# Prázdné = same-origin "/api" (PWA i API na stejném portu). Jinak např. http://100.x.y.z:8090/api
+ARG VITE_API_BASE=
+# Pi má 2 GB RAM a vedle běží Postgres + ingestor: Vite build má špičku ~0,5 GB RSS.
+# Typecheck (tsc) se tu vynechává – dělá ho `npm run build` při vývoji; tady jen bundle.
+# Když je RAM na Pi málo, postav dist jinde a podstrč ho (viz stage `webdist` níže).
+ENV VITE_API_BASE=${VITE_API_BASE} \
+    NODE_OPTIONS=--max-old-space-size=512
+RUN node node_modules/vite/bin/vite.js build
+
+# ---------- webdist: hotové statické soubory PWA ----------
+# Default = výstup stage `web`. Lze přepsat hotovým buildem (Node se pak na Pi vůbec nespouští):
+#   compose: v docker-compose.yml odkomentuj `additional_contexts: webdist: ./web/dist`
+#   buildx:  docker buildx build -f Dockerfile.api --build-context webdist=./web/dist .
+FROM scratch AS webdist
+COPY --from=web /web/dist /
+
+# ---------- builder: venv (stejné první vrstvy jako Dockerfile ingestoru → sdílená cache) ----------
+FROM python:${PYTHON_VERSION}-slim AS builder
+
+ENV PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PYTHONDONTWRITEBYTECODE=1
+
+# Build deps jen pro případ, že pro arm64 chybí wheel (asyncpg, aiohttp, ...).
+# hadolint ignore=DL3008
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends build-essential \
+ && rm -rf /var/lib/apt/lists/*
+
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+WORKDIR /src
+COPY requirements.txt .
+RUN pip install -r requirements.txt
+# fastapi/uvicorn (bez [standard] → žádné uvloop/httptools; vše čisté wheely)
+COPY requirements-api.txt .
+RUN pip install -r requirements-api.txt
+
+COPY pyproject.toml README.md ./
+COPY src ./src
+RUN pip install .
+
+# ---------- runtime ----------
+FROM python:${PYTHON_VERSION}-slim AS runtime
+
+ENV PATH="/opt/venv/bin:$PATH" \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    LOG_FORMAT=json \
+    API_HOST=0.0.0.0 \
+    API_PORT=8090 \
+    API_WEB_DIST=/app/web/dist
+
+RUN groupadd --system --gid 10001 tractive \
+ && useradd --system --uid 10001 --gid tractive --home-dir /app --shell /usr/sbin/nologin tractive \
+ && mkdir -p /app \
+ && chown -R tractive:tractive /app
+
+COPY --from=builder /opt/venv /opt/venv
+COPY --from=webdist / /app/web/dist
+
+WORKDIR /app
+USER 10001:10001
+
+EXPOSE 8090
+
+# Liveness na /api/health (nesahá do DB). Readiness s DB: /api/ready.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+  CMD ["python", "-c", "import os,urllib.request; urllib.request.urlopen('http://127.0.0.1:%s/api/health' % os.environ.get('API_PORT', '8090'), timeout=4)"]
+
+ENTRYPOINT ["python", "-m", "tractive_api"]
