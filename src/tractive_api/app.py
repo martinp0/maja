@@ -6,6 +6,8 @@ pro vývoj (`npm run dev`). Autentizace: PIN login (APP_PIN) -> podepsaná cooki
 PWA shell na / je veřejný – data jsou za loginem. Bez APP_PIN je auth vypnutá.
 Nativní appky (iPhone/widget/Watch) se místo cookie hlásí read-only tokenem
 (`Authorization: Bearer`, API_READ_TOKENS) – jen GET na polohu, baterii a doma/venku.
+Token má vlastní rate limit (per IP) a platný token se kvůli cizím neúspěchům nezamítá.
+Pro token se trasa omezí na 48 h a z geofence odpovědi zmizí souřadnice domova.
 """
 
 from __future__ import annotations
@@ -42,12 +44,15 @@ from tractive_ingestor.push import InvalidSubscription, Sender, WebPushSender, m
 from .auth import (
     COOKIE_NAME,
     PUBLIC_API_PATHS,
+    READ_TOKEN_POSITION_MAX_AGE_S,
+    READ_TOKEN_POSITION_MAX_POINTS,
     SESSION_MAX_AGE,
     LoginRateLimiter,
     bearer_token,
     check_pin,
-    check_read_token,
+    client_address,
     make_token,
+    match_read_token,
     read_token_allows,
     verify_token,
 )
@@ -76,12 +81,88 @@ class LoginRequest(BaseModel):
 
 
 def client_ip(request: Request) -> str:
-    # Za Cloudflare Tunnelem přichází vše z loopbacku; CF-Connecting-IP nastavuje (a přepisuje)
-    # Cloudflare edge. Port API je publikovaný jen na loopback, takže hlavičku nejde obejít zvenku.
-    cf = request.headers.get("cf-connecting-ip")
-    if cf:
-        return cf.strip()[:64]
-    return request.client.host if request.client else "unknown"
+    # CF-Connecting-IP a X-Forwarded-For jen od důvěryhodného lokálního proxy
+    # (loopback nebo docker bridge). Jinak by šla IP podvrhnout a přesunout rate-limit bucket.
+    peer = request.client.host if request.client else None
+    return client_address(peer, request.headers)
+
+
+# Klíče, které nesmí odejít read-only tokenu (souřadnice domova). Poloha psa (`lat`/`lng` fixu) zůstává.
+_HOME_COORD_KEYS = frozenset({
+    "home_lat", "home_lon", "home_lng", "home_latitude", "home_longitude", "home_location",
+})
+
+
+def _via_read_token(request: Request) -> bool:
+    return bool(getattr(request.state, "via_read_token", False))
+
+
+def redact_home_for_read_token(request: Request, payload: Any) -> Any:
+    """Cookie/PIN session dostane payload beze změny. Read token nedostane souřadnice domova."""
+    if not _via_read_token(request):
+        return payload
+    return _redact_home(payload)
+
+
+def _redact_home(payload: Any) -> Any:
+    if isinstance(payload, dict):
+        out: dict[str, Any] = {}
+        for key, value in payload.items():
+            if key in _HOME_COORD_KEYS:
+                continue
+            if key == "home":
+                out[key] = None
+                continue
+            out[key] = _redact_home(value)
+        return out
+    if isinstance(payload, list):
+        return [_redact_home(item) for item in payload]
+    return payload
+
+
+# PWA: same-origin skripty a manifest, inline styly (Leaflet + React style), OSM dlaždice.
+# frame-ancestors 'none' = stránka se nedá vložit do cizího iframe.
+# HSTS (Strict-Transport-Security) tady nenastavujeme ani nemažeme – necháváme ho edge (Cloudflare).
+_PWA_CSP = (
+    "default-src 'self'; "
+    "script-src 'self'; "
+    "style-src 'self' 'unsafe-inline'; "
+    "img-src 'self' data: blob: https://tile.openstreetmap.org; "
+    "connect-src 'self' https://tile.openstreetmap.org; "
+    "font-src 'self'; "
+    "worker-src 'self'; "
+    "manifest-src 'self'; "
+    "object-src 'none'; "
+    "base-uri 'self'; "
+    "form-action 'self'; "
+    "frame-src 'none'; "
+    "frame-ancestors 'none'"
+)
+# Swagger UI (/api/docs) tahá JS/CSS z jsDelivr a má inline skript. Jen tahle cesta.
+_DOCS_CSP = (
+    "default-src 'self'; "
+    "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+    "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+    "img-src 'self' data: https://fastapi.tiangolo.com https://cdn.jsdelivr.net; "
+    "connect-src 'self'; "
+    "font-src 'self' data:; "
+    "object-src 'none'; "
+    "base-uri 'self'; "
+    "form-action 'self'; "
+    "frame-src 'none'; "
+    "frame-ancestors 'none'"
+)
+
+
+def apply_security_headers(response: Response, path: str) -> None:
+    """CSP, nosniff, Referrer-Policy. Existující HSTS se nenechává přepsat ani smazat."""
+    sts = response.headers.get("strict-transport-security")
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    docs = path.rstrip("/").startswith("/api/docs")
+    response.headers["Content-Security-Policy"] = _DOCS_CSP if docs else _PWA_CSP
+    if sts is not None:
+        response.headers["Strict-Transport-Security"] = sts
 
 
 class PushKeys(BaseModel):
@@ -201,11 +282,15 @@ def create_app(settings: ApiSettings | None = None, store: ApiStore | None = Non
         log.info("api.auth_enabled")
     else:
         log.warning("api.auth_disabled", hint="APP_PIN není nastavený – API je bez přihlášení")
-    limiter = LoginRateLimiter()
-    app.state.login_limiter = limiter
-    read_tokens = settings.read_tokens
-    if read_tokens:
-        log.info("api.read_tokens_enabled", count=len(read_tokens))
+    # PIN/passkey a read-only token mají oddělené počítadla. Cizí neúspěchy jednoho
+    # nezamknou druhé a není tu globální strop přes všechny IP.
+    login_limiter = LoginRateLimiter()
+    token_limiter = LoginRateLimiter()
+    app.state.login_limiter = login_limiter
+    app.state.token_limiter = token_limiter
+    read_entries = settings.read_token_entries
+    if read_entries:
+        log.info("api.read_tokens_enabled", count=len(read_entries), names=[name for name, _ in read_entries])
 
     def is_authed(request: Request) -> bool:
         if not pin:
@@ -223,19 +308,29 @@ def create_app(settings: ApiSettings | None = None, store: ApiStore | None = Non
             and not is_authed(request)
         ):
             # Nativní appky: read-only Bearer token (API_READ_TOKENS), jen GET na čtecí endpointy.
+            # Platný token se ověří dřív než rate limit – cizí neúspěchy ho nezamknou.
+            # Do logu jde jen jméno tokenu, nikdy samotný secret.
             token = bearer_token(request.headers.get("authorization"))
-            if token is not None and read_tokens:
+            if token is not None and read_entries:
                 ip = client_ip(request)
-                if limiter.blocked(ip):
-                    return JSONResponse(status_code=429, content={"detail": "Moc pokusů"},
-                                        headers={"Retry-After": str(int(limiter.window)), "Cache-Control": "no-store"})
-                if not check_read_token(read_tokens, token):
-                    limiter.fail(ip)
-                    log.warning("api.read_token_failed", ip=ip)
+                token_name = match_read_token(read_entries, token)
+                if token_name is not None:
+                    allowed = read_token_allows(request.method, path.rstrip("/"))
+                    log.info("api.read_token_ok" if allowed else "api.read_token_forbidden",
+                             token_name=token_name, path=path)
+                    if not allowed:
+                        return JSONResponse(status_code=403, content={"detail": "Token je jen pro čtení"},
+                                            headers={"Cache-Control": "no-store"})
+                    request.state.via_read_token = True
+                    request.state.read_token_name = token_name
+                else:
+                    if token_limiter.blocked(ip):
+                        return JSONResponse(status_code=429, content={"detail": "Moc pokusů"},
+                                            headers={"Retry-After": str(int(token_limiter.window)),
+                                                     "Cache-Control": "no-store"})
+                    token_limiter.fail(ip)
+                    log.warning("api.read_token_failed", ip=ip, token_name="unknown")
                     return JSONResponse(status_code=401, content={"detail": "Neplatný token"},
-                                        headers={"Cache-Control": "no-store"})
-                if not read_token_allows(request.method, path.rstrip("/")):
-                    return JSONResponse(status_code=403, content={"detail": "Token je jen pro čtení"},
                                         headers={"Cache-Control": "no-store"})
             else:
                 return JSONResponse(status_code=401, content={"detail": "Nepřihlášeno"},
@@ -255,6 +350,12 @@ def create_app(settings: ApiSettings | None = None, store: ApiStore | None = Non
             allow_credentials=True,
         )
 
+    @app.middleware("http")
+    async def security_headers(request: Request, call_next):  # type: ignore[no-untyped-def]
+        response = await call_next(request)
+        apply_security_headers(response, request.url.path)
+        return response
+
     for exc_type in _db_errors():
 
         @app.exception_handler(exc_type)
@@ -269,15 +370,15 @@ def create_app(settings: ApiSettings | None = None, store: ApiStore | None = Non
         if not pin:
             return {"ok": True, "auth": "disabled"}
         ip = client_ip(request)
-        if limiter.blocked(ip):
+        if login_limiter.blocked(ip):
             log.warning("api.login_rate_limited", ip=ip)
             return JSONResponse(status_code=429, content={"ok": False, "detail": "Moc pokusů"},
-                                headers={"Retry-After": str(int(limiter.window)), "Cache-Control": "no-store"})
+                                headers={"Retry-After": str(int(login_limiter.window)), "Cache-Control": "no-store"})
         if not check_pin(pin, body.secret):
-            limiter.fail(ip)
+            login_limiter.fail(ip)
             log.warning("api.login_failed", ip=ip)
             return JSONResponse(status_code=401, content={"ok": False}, headers={"Cache-Control": "no-store"})
-        limiter.success(ip)
+        login_limiter.success(ip)
         log.info("api.login_ok", ip=ip)
         response.headers["Cache-Control"] = "no-store"
         response.set_cookie(COOKIE_NAME, make_token(secret), max_age=SESSION_MAX_AGE, path="/",  # type: ignore[arg-type]
@@ -323,7 +424,7 @@ def create_app(settings: ApiSettings | None = None, store: ApiStore | None = Non
     def _rate_limited(ip: str) -> JSONResponse:
         log.warning("api.login_rate_limited", ip=ip, method="passkey")
         return JSONResponse(status_code=429, content={"ok": False, "detail": "Moc pokusů"},
-                            headers={"Retry-After": str(int(limiter.window)), "Cache-Control": "no-store"})
+                            headers={"Retry-After": str(int(login_limiter.window)), "Cache-Control": "no-store"})
 
     def _descriptor(c: dict[str, Any]) -> Any:
         transports = []
@@ -385,7 +486,7 @@ def create_app(settings: ApiSettings | None = None, store: ApiStore | None = Non
     @app.post("/api/webauthn/login/options")
     async def wa_login_options(request: Request, store: StoreDep) -> Response:
         ip = client_ip(request)
-        if limiter.blocked(ip):
+        if login_limiter.blocked(ip):
             return _rate_limited(ip)
         creds = await store.webauthn_list()
         if not creds:
@@ -402,13 +503,13 @@ def create_app(settings: ApiSettings | None = None, store: ApiStore | None = Non
     @app.post("/api/webauthn/login/verify")
     async def wa_login_verify(request: Request, store: StoreDep) -> Any:
         ip = client_ip(request)
-        if limiter.blocked(ip):
+        if login_limiter.blocked(ip):
             return _rate_limited(ip)
         body = await _json_body(request)
         challenge = challenges.pop(request.cookies.get(WA_COOKIE), "login")
 
         def fail(status: int, detail: str) -> JSONResponse:
-            limiter.fail(ip)
+            login_limiter.fail(ip)
             log.warning("api.login_failed", ip=ip, method="passkey", reason=detail)
             resp = JSONResponse(status_code=status, content={"ok": False, "detail": detail},
                                 headers={"Cache-Control": "no-store"})
@@ -434,7 +535,7 @@ def create_app(settings: ApiSettings | None = None, store: ApiStore | None = Non
             log.warning("api.passkey_verify_failed", error=str(exc)[:200])
             return fail(401, "Ověření passkey selhalo")
         await store.webauthn_touch(raw_id, v.new_sign_count)
-        limiter.success(ip)
+        login_limiter.success(ip)
         log.info("api.login_ok", ip=ip, method="passkey", credential=stored["id"])
         resp = JSONResponse(content={"ok": True, "credential_id": stored["id"]}, headers={"Cache-Control": "no-store"})
         _clear_wa_cookie(resp)
@@ -485,6 +586,7 @@ def create_app(settings: ApiSettings | None = None, store: ApiStore | None = Non
     @app.get("/api/trackers/{tracker_id}/positions")
     async def positions(
         tracker_id: KnownTracker,
+        request: Request,
         store: StoreDep,
         since: datetime | None = Query(default=None, description="ISO 8601; default = posledních API_POSITIONS_DEFAULT_HOURS h"),
         limit: int = Query(default=2000, ge=1),
@@ -494,6 +596,13 @@ def create_app(settings: ApiSettings | None = None, store: ApiStore | None = Non
         elif since.tzinfo is None:
             since = since.replace(tzinfo=UTC)  # bez zóny = UTC
         limit = min(limit, settings.api_positions_max_limit)
+        # Read-only token (tunel, token nevyprší): jen posledních 48 h a nižší strop bodů.
+        # Cookie/PIN session si nechá plné okno.
+        if _via_read_token(request):
+            floor = datetime.now(UTC) - timedelta(seconds=READ_TOKEN_POSITION_MAX_AGE_S)
+            if since < floor:
+                since = floor
+            limit = min(limit, READ_TOKEN_POSITION_MAX_POINTS)
         pts = await store.positions(tracker_id, since, limit)
         return {"tracker_id": tracker_id, "since": since, "limit": limit, "count": len(pts), "positions": pts}
 
@@ -541,6 +650,7 @@ def create_app(settings: ApiSettings | None = None, store: ApiStore | None = Non
 
     @app.get("/api/geofence/state")
     async def geofence_state(
+        request: Request,
         store: StoreDep,
         response: Response,
         tracker_id: str | None = Query(default=None, pattern=r"^[A-Za-z0-9_-]{1,64}$",
@@ -566,11 +676,12 @@ def create_app(settings: ApiSettings | None = None, store: ApiStore | None = Non
             "schema_ready": True,
         }
         if tid is None:
-            return out
+            return redact_home_for_read_token(request, out)
         out["in_home_zone"] = await store.in_home_zone(tid)
         if home_cfg is None:
-            return out
-        # appka je za PINem -> střed domova smí API vrátit (kreslí se kruh); v gitu ani v PWA není
+            return redact_home_for_read_token(request, out)
+        # Cookie/PIN: střed domova smí API vrátit (PWA kreslí kruh). Read-only token ho nedostane
+        # (tunel je veřejný a token nevyprší) – souřadnice domova zůstávají jen v .env.
         out["home"] = {"lat": home_cfg.lat, "lng": home_cfg.lon}
         pos = await store.latest_position(tid)
         if pos is not None:
@@ -579,24 +690,25 @@ def create_app(settings: ApiSettings | None = None, store: ApiStore | None = Non
         cp = await store.geofence_evaluate(tid, home_cfg)
         if cp is None:
             out["schema_ready"] = False
-            return out
+            return redact_home_for_read_token(request, out)
         out.update(state=cp["state"], since=cp["since"], pending_state=cp["pending_state"],
                    pending_since=cp["pending_since"])
         out["escaped"] = bool(
             cp["state"] == "away" and out["distance_m"] is not None and out["distance_m"] > home_cfg.escape_m
         )
-        return out
+        return redact_home_for_read_token(request, out)
 
     @app.get("/api/geofence/events")
     async def geofence_events(
+        request: Request,
         store: StoreDep,
         tracker_id: str | None = Query(default=None, pattern=r"^[A-Za-z0-9_-]{1,64}$"),
         limit: int = Query(default=50, ge=1, le=500),
     ) -> list[dict[str, Any]]:
         tid = await _resolve_tracker(store, tracker_id)
         if tid is None:
-            return []
-        return await store.geofence_events(tid, limit)
+            return redact_home_for_read_token(request, [])
+        return redact_home_for_read_token(request, await store.geofence_events(tid, limit))
 
     # ------------------------------------------------------------------ Web Push
 

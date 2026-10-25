@@ -7,6 +7,8 @@ struct SettingsView: View {
     @State private var server = MajaSettings.serverURL?.absoluteString ?? ""
     @State private var token = ""
     @State private var hasToken = Keychain.readToken() != nil
+    @State private var homeLat = MajaSettings.homeLatitude.map(Self.formatCoord) ?? ""
+    @State private var homeLng = MajaSettings.homeLongitude.map(Self.formatCoord) ?? ""
     @State private var testing = false
     @State private var result: String?
 
@@ -28,7 +30,15 @@ struct SettingsView: View {
                         }
                     }
                 } header: { Text("Read-only token") } footer: {
-                    Text("Jedna z hodnot API_READ_TOKENS v .env na serveru (openssl rand -hex 32). Token umí jen číst polohu, baterii a doma/venku, povely ne. Ukládá se jen do Klíčenky tohoto zařízení a do Apple Watch.")
+                    Text("Hodnota z API_READ_TOKENS v .env na serveru (openssl rand -hex 32), u pojmenovaného tokenu část za rovnítkem. Token umí jen číst polohu, baterii a doma/venku, povely ne. Ukládá se jen do Klíčenky tohoto zařízení a do Apple Watch.")
+                }
+                Section {
+                    TextField("Zeměpisná šířka", text: $homeLat)
+                        .keyboardType(.numbersAndPunctuation).textInputAutocapitalization(.never).autocorrectionDisabled()
+                    TextField("Zeměpisná délka", text: $homeLng)
+                        .keyboardType(.numbersAndPunctuation).textInputAutocapitalization(.never).autocorrectionDisabled()
+                } header: { Text("Domov na mapě") } footer: {
+                    Text("Volitelné. Server read-only tokenu souřadnice domova neposílá. Kruh na mapě se kreslí jen z těchto hodnot, uložených na zařízení a na hodinkách. Prázdné obě pole kruh vypne.")
                 }
                 Section {
                     Button { Task { await test() } } label: {
@@ -65,9 +75,28 @@ struct SettingsView: View {
 
     private func save() {
         guard let url = MajaSettings.normalize(server) else { return }
+        let latText = homeLat.trimmingCharacters(in: .whitespacesAndNewlines)
+        let lngText = homeLng.trimmingCharacters(in: .whitespacesAndNewlines)
+        if latText.isEmpty && lngText.isEmpty {
+            MajaSettings.homeLatitude = nil
+            MajaSettings.homeLongitude = nil
+        } else if let lat = MajaSettings.parseCoord(latText, range: -90...90),
+                  let lng = MajaSettings.parseCoord(lngText, range: -180...180) {
+            MajaSettings.homeLatitude = lat
+            MajaSettings.homeLongitude = lng
+        } else {
+            result = "Souřadnice domova nejsou platné (šířka −90…90, délka −180…180)."
+            return
+        }
         MajaSettings.serverURL = url
         if !token.isEmpty { Keychain.saveToken(token.trimmingCharacters(in: .whitespacesAndNewlines)) }
         onSave()
         dismiss()
+    }
+
+    private static func formatCoord(_ value: Double) -> String {
+        var s = String(format: "%.6f", value)
+        while s.contains(".") && (s.hasSuffix("0") || s.hasSuffix(".")) { s.removeLast() }
+        return s
     }
 }

@@ -189,8 +189,15 @@ class ApiRoutesTest(unittest.TestCase):
                 self.assertIn("immutable", client.get("/assets/app-123.js").headers["cache-control"])
                 self.assertEqual(client.get("/api/pets").status_code, 200)
 
-    def test_cors_dev_origin(self) -> None:
+    def test_cors_default_is_closed(self) -> None:
         with self.make()[0] as client:
+            r = client.get("/api/health", headers={"Origin": "http://localhost:5173"})
+            self.assertIsNone(r.headers.get("access-control-allow-origin"))
+            self.assertNotIn("access-control-allow-credentials", r.headers)
+        with self.make(api_cors_origins="")[0] as client:
+            r = client.get("/api/health", headers={"Origin": "http://evil.example"})
+            self.assertIsNone(r.headers.get("access-control-allow-origin"))
+        with self.make(api_cors_origins="http://localhost:5173, http://127.0.0.1:5173")[0] as client:
             r = client.get("/api/health", headers={"Origin": "http://localhost:5173"})
             self.assertEqual(r.headers.get("access-control-allow-origin"), "http://localhost:5173")
             r = client.get("/api/health", headers={"Origin": "http://evil.example"})
@@ -204,8 +211,10 @@ class ApiAuthTest(unittest.TestCase):
     def make(self, pin: str | None = "4321", secret: str | None = SECRET, web: Path | None = None) -> TestClient:
         settings = ApiSettings(_env_file=None, database_url=None, api_web_dist=web or Path("/nonexistent"),
                                app_pin=pin, app_session_secret=secret)
-        # https base_url: cookie má Secure, přes http by ji httpx neposlal zpět
-        return TestClient(create_app(settings, FakeStore()), base_url="https://testserver")
+        # https base_url: cookie má Secure, přes http by ji httpx neposlal zpět.
+        # 127.0.0.1 = důvěryhodný lokální proxy, takže CF-Connecting-IP v testech platí.
+        return TestClient(create_app(settings, FakeStore()), base_url="https://testserver",
+                          client=("127.0.0.1", 50000))
 
     def test_disabled_without_pin(self) -> None:
         with self.make(pin=None) as c:
@@ -281,7 +290,8 @@ class ApiAuthTest(unittest.TestCase):
     def make_tokens(self, tokens: str | None) -> TestClient:
         settings = ApiSettings(_env_file=None, database_url=None, api_web_dist=Path("/nonexistent"),
                                app_pin="4321", app_session_secret=self.SECRET, api_read_tokens=tokens)
-        return TestClient(create_app(settings, FakeStore()), base_url="https://testserver")
+        return TestClient(create_app(settings, FakeStore()), base_url="https://testserver",
+                          client=("127.0.0.1", 50000))
 
     def test_read_token(self) -> None:
         good = "a1" * 16
@@ -310,9 +320,15 @@ class ApiAuthTest(unittest.TestCase):
         with self.make_tokens(tok) as c:
             for _ in range(5):
                 self.assertEqual(c.get("/api/pets", headers={"Authorization": "Bearer " + "x" * 32}).status_code, 401)
-            self.assertEqual(c.get("/api/pets", headers={"Authorization": f"Bearer {tok}"}).status_code, 429)
-            r = c.get("/api/pets", headers={"Authorization": f"Bearer {tok}", "CF-Connecting-IP": "203.0.113.9"})
-            self.assertEqual(r.status_code, 200)
+            # další špatný token z téhle IP je zamčený, platný token ne
+            self.assertEqual(c.get("/api/pets", headers={"Authorization": "Bearer " + "y" * 32}).status_code, 429)
+            self.assertEqual(c.get("/api/pets", headers={"Authorization": f"Bearer {tok}"}).status_code, 200)
+            # selhání tokenu nezamkne PIN na stejné IP
+            self.assertEqual(c.post("/api/login", json={"pin": "4321"}).status_code, 200)
+            self.assertEqual(c.post("/api/logout").status_code, 200)
+            # jiná IP pořád může zkusit špatný token (není v globálním zámku)
+            r = c.get("/api/pets", headers={"Authorization": "Bearer " + "z" * 32, "CF-Connecting-IP": "203.0.113.9"})
+            self.assertEqual(r.status_code, 401)
 
     def test_static_shell_open(self) -> None:
         with tempfile.TemporaryDirectory() as d:

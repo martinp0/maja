@@ -14,6 +14,8 @@ from pydantic_settings import SettingsConfigDict
 
 from tractive_ingestor.config import HomeGeofenceSettings
 
+from .auth import parse_read_tokens
+
 
 class ApiSettings(HomeGeofenceSettings):
     model_config = SettingsConfigDict(
@@ -33,9 +35,9 @@ class ApiSettings(HomeGeofenceSettings):
     # 127.0.0.1 = jen lokálně; v Dockeru 0.0.0.0 (Dockerfile.api/compose), ven publikuje compose
     api_host: str = "127.0.0.1"
     api_port: int = 8090
-    # Čárkami oddělené originy pro CORS (vývoj PWA přes `npm run dev` na :5173).
-    # Same-origin (PWA servírovaná z tohohle API) CORS nepotřebuje.
-    api_cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
+    # Čárkami oddělené originy pro CORS. Prázdné / nenastavené = žádný CORS
+    # (produkce i same-origin PWA). Vyplň jen když prohlížeč volá API z jiného originu.
+    api_cors_origins: str = ""
     # Adresář s buildem PWA (web/dist). Neexistuje -> servíruje se jen /api.
     api_web_dist: Path = Path("web/dist")
     # Strop počtu bodů v /positions (2GB RAM Pi + mobil – víc stejně nevykreslíme)
@@ -49,8 +51,8 @@ class ApiSettings(HomeGeofenceSettings):
     # při každém startu -> po restartu API se musí znovu zadat PIN.
     app_session_secret: SecretStr | None = None
     # Read-only tokeny pro nativní appky (iPhone, widget, Apple Watch): hlavička
-    # `Authorization: Bearer <token>`. Víc tokenů čárkami (jeden na zařízení, ať jde jeden zneplatnit).
-    # Pustí jen GET na čtecí endpointy (poloha, baterie, doma/venku) – povely ani nastavení ne.
+    # `Authorization: Bearer <token>`. Buď `jméno=token` (jeden na zařízení, v logu je jen jméno),
+    # nebo starý seznam tokenů čárkami. Pustí jen GET na čtecí endpointy (poloha, baterie, doma/venku).
     # Prázdné = vypnuto. Kratší než 32 znaků se ignoruje. Vygeneruj: openssl rand -hex 32
     api_read_tokens: SecretStr | None = None
 
@@ -92,10 +94,14 @@ class ApiSettings(HomeGeofenceSettings):
             return value.encode("utf-8")  # tolerance: ne-hex hodnota se použije tak, jak je
 
     @property
-    def read_tokens(self) -> list[str]:
+    def read_token_entries(self) -> list[tuple[str, str]]:
         if self.api_read_tokens is None:
             return []
-        return [t.strip() for t in self.api_read_tokens.get_secret_value().split(",") if len(t.strip()) >= 32]
+        return parse_read_tokens(self.api_read_tokens.get_secret_value())
+
+    @property
+    def read_tokens(self) -> list[str]:
+        return [secret for _, secret in self.read_token_entries]
 
     @property
     def cors_origins(self) -> list[str]:
