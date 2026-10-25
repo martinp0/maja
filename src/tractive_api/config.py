@@ -48,6 +48,11 @@ class ApiSettings(HomeGeofenceSettings):
     # Hex klíč pro HMAC session cookie (např. `openssl rand -hex 32`). Prázdný = náhodný
     # při každém startu -> po restartu API se musí znovu zadat PIN.
     app_session_secret: SecretStr | None = None
+    # Read-only tokeny pro nativní appky (iPhone, widget, Apple Watch): hlavička
+    # `Authorization: Bearer <token>`. Víc tokenů čárkami (jeden na zařízení, ať jde jeden zneplatnit).
+    # Pustí jen GET na čtecí endpointy (poloha, baterie, doma/venku) – povely ani nastavení ne.
+    # Prázdné = vypnuto. Kratší než 32 znaků se ignoruje. Vygeneruj: openssl rand -hex 32
+    api_read_tokens: SecretStr | None = None
 
     # Passkeys (WebAuthn). RP ID = doména bez schématu/portu; origin = přesná adresa appky.
     # Víc originů čárkami. Výchozí je localhost; na vlastní doméně obojí nastav v .env
@@ -85,6 +90,12 @@ class ApiSettings(HomeGeofenceSettings):
             return bytes.fromhex(value)
         except ValueError:
             return value.encode("utf-8")  # tolerance: ne-hex hodnota se použije tak, jak je
+
+    @property
+    def read_tokens(self) -> list[str]:
+        if self.api_read_tokens is None:
+            return []
+        return [t.strip() for t in self.api_read_tokens.get_secret_value().split(",") if len(t.strip()) >= 32]
 
     @property
     def cors_origins(self) -> list[str]:

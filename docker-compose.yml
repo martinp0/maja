@@ -104,6 +104,8 @@ services:
       # Login do appky (heslo) + klíč session cookie – jen v .env. Prázdné APP_PIN = bez přihlášení!
       APP_PIN: ${APP_PIN:-}
       APP_SESSION_SECRET: ${APP_SESSION_SECRET:-}
+      # Read-only tokeny pro nativní appky (iPhone/widget/Watch) – jen v .env. Prázdné = vypnuto.
+      API_READ_TOKENS: ${API_READ_TOKENS:-}
       # Passkeys (Face ID): RP ID = doména bez schématu, origin = přesná adresa (víc čárkami).
       # Výchozí je localhost. Na vlastní doméně nastav obojí v .env — produkční Pi to tak dělá.
       WEBAUTHN_RP_ID: ${WEBAUTHN_RP_ID:-localhost}

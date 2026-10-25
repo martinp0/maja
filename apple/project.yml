@@ -1,0 +1,137 @@
+# XcodeGen spec. Generate the Xcode project with:
+#   brew install xcodegen && cd apple && xcodegen generate && open Maja.xcodeproj
+name: Maja
+options:
+  bundleIdPrefix: cz.martinpohl
+  deploymentTarget:
+    iOS: "17.0"
+    watchOS: "10.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "1.0.0"
+    CURRENT_PROJECT_VERSION: "1"
+    # Set your team in Xcode (Signing & Capabilities) or here; never commit certificates or tokens.
+    DEVELOPMENT_TEAM: ""
+    CODE_SIGN_STYLE: Automatic
+
+# Shared between app and widget on each device: App Group (settings + last snapshot)
+# and a Keychain access group (read-only token).
+targets:
+  Maja:
+    type: application
+    platform: iOS
+    sources:
+      - path: Shared
+      - path: iOS
+    entitlements:
+      path: iOS/Maja.entitlements
+      properties:
+        com.apple.security.application-groups: [group.cz.martinpohl.maja]
+        keychain-access-groups: [$(AppIdentifierPrefix)cz.martinpohl.maja.shared]
+    info:
+      path: iOS/Info.plist
+      properties:
+        MajaKeychainGroup: $(AppIdentifierPrefix)cz.martinpohl.maja.shared
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: cz.martinpohl.maja
+        PRODUCT_NAME: Maja
+        TARGETED_DEVICE_FAMILY: "1"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: Mája
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait
+        INFOPLIST_KEY_NSLocationWhenInUseUsageDescription: Mája ukáže, jak daleko od tebe pes je. Poloha zůstává v telefonu.
+    dependencies:
+      - target: MajaWidget
+      - target: MajaWatch
+
+  MajaWidget:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: Shared
+        excludes: [ConfigSync.swift]
+      - path: Widget
+    entitlements:
+      path: Widget/MajaWidget.entitlements
+      properties:
+        com.apple.security.application-groups: [group.cz.martinpohl.maja]
+        keychain-access-groups: [$(AppIdentifierPrefix)cz.martinpohl.maja.shared]
+    info:
+      path: Widget/Info-iOS.plist
+      properties:
+        MajaKeychainGroup: $(AppIdentifierPrefix)cz.martinpohl.maja.shared
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: cz.martinpohl.maja.widget
+        PRODUCT_NAME: MajaWidget
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: Mája
+        SKIP_INSTALL: YES
+
+  MajaWatch:
+    type: application
+    platform: watchOS
+    sources:
+      - path: Shared
+      - path: watchOS
+    entitlements:
+      path: watchOS/MajaWatch.entitlements
+      properties:
+        com.apple.security.application-groups: [group.cz.martinpohl.maja]
+        keychain-access-groups: [$(AppIdentifierPrefix)cz.martinpohl.maja.shared]
+    info:
+      path: watchOS/Info.plist
+      properties:
+        MajaKeychainGroup: $(AppIdentifierPrefix)cz.martinpohl.maja.shared
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: cz.martinpohl.maja.watchkitapp
+        PRODUCT_NAME: Maja
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: Mája
+        INFOPLIST_KEY_WKCompanionAppBundleIdentifier: cz.martinpohl.maja
+        INFOPLIST_KEY_WKRunsIndependentlyOfCompanionApp: NO
+    dependencies:
+      - target: MajaWatchWidget
+
+  MajaWatchWidget:
+    type: app-extension
+    platform: watchOS
+    sources:
+      - path: Shared
+        excludes: [ConfigSync.swift]
+      - path: Widget
+    entitlements:
+      path: Widget/MajaWatchWidget.entitlements
+      properties:
+        com.apple.security.application-groups: [group.cz.martinpohl.maja]
+        keychain-access-groups: [$(AppIdentifierPrefix)cz.martinpohl.maja.shared]
+    info:
+      path: Widget/Info-watchOS.plist
+      properties:
+        MajaKeychainGroup: $(AppIdentifierPrefix)cz.martinpohl.maja.shared
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: cz.martinpohl.maja.watchkitapp.widget
+        PRODUCT_NAME: MajaWatchWidget
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: Mája
+        SKIP_INSTALL: YES
