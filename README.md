@@ -121,6 +121,7 @@ with placeholders.
 | `WEBAUTHN_RP_ID`, `WEBAUTHN_ORIGIN` | Passkey host. Default `localhost` and `http://localhost:8090`. On your own domain set both to that exact site. |
 | `DEMO_MODE` | `1` skips the Tractive login so you can look at `seed-demo` data. Leave unset for a real collar. |
 | `API_PUBLISH_ADDR` | Host address for port 8090. Default `127.0.0.1`. |
+| `API_READ_TOKENS` | Optional, comma-separated read-only tokens (≥ 32 chars, `openssl rand -hex 32`) for the native iPhone/Watch app in `apple/`. GET-only on location, battery and home state. Empty = off. |
 
 `VAPID_SUBJECT` defaults to `mailto:you@example.com` when unset. Set a real
 `mailto:` in `.env` before you rely on push.

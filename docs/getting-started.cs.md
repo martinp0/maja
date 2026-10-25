@@ -56,6 +56,7 @@ chmod 600 .env
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | Push vypnutý. |
 | `WEBAUTHN_RP_ID`, `WEBAUTHN_ORIGIN` | Passkey použije `localhost` a `http://localhost:8090`. |
 | `API_PUBLISH_ADDR` | Web jen na tomhle počítači: `127.0.0.1:8090`. |
+| `API_READ_TOKENS` | Nativní appka pro iPhone a Watch (`apple/`) se nepřihlašuje. Dej sem jeden nebo víc read-only tokenů oddělených čárkou, každý z `openssl rand -hex 32`. Umí jen číst polohu, baterii a doma/venku. |
 | `API_PUBLISH_PORT` | Port `8090`. |
 | `DEMO_MODE` | Ingestor se zkouší přihlásit k Tractive. `DEMO_MODE=1` přihlášení přeskočí. |
 | `INGESTOR_DATABASE_URL` | Compose použije kontejner Postgres. Vyplň to jen pro Supabase a pak spouštěj samotný ingestor. |

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import re
 import threading
 import time
 from collections import deque
@@ -18,6 +19,37 @@ SESSION_MAX_AGE = 90 * 24 * 3600  # 7776000 s
 # Cesty pod /api, které jsou dostupné bez přihlášení
 PUBLIC_API_PATHS = frozenset({"/api/login", "/api/logout", "/api/me", "/api/health", "/api/ready",
                               "/api/webauthn/login/options", "/api/webauthn/login/verify"})
+
+
+# Read-only bearer token (nativní appky): jen GET/HEAD na tyhle cesty. `{id}` = tracker id.
+READ_TOKEN_PATHS = (
+    re.compile(r"^/api/(pets|trackers)$"),
+    re.compile(r"^/api/trackers/[A-Za-z0-9_-]{1,64}/(latest|positions|health)$"),
+    re.compile(r"^/api/geofence/(state|events)$"),
+)
+
+
+def read_token_allows(method: str, path: str) -> bool:
+    return method in ("GET", "HEAD") and any(p.match(path) for p in READ_TOKEN_PATHS)
+
+
+def bearer_token(header: str | None) -> str | None:
+    if not header:
+        return None
+    scheme, _, value = header.partition(" ")
+    if scheme.lower() != "bearer" or not value.strip():
+        return None
+    return value.strip()
+
+
+def check_read_token(tokens: list[str], given: str | None) -> bool:
+    """Konstantní čas přes všechny tokeny (nevyzradí, kolikátý sedí)."""
+    if not given or not tokens:
+        return False
+    ok = False
+    for t in tokens:
+        ok |= hmac.compare_digest(t.encode("utf-8"), given.encode("utf-8"))
+    return ok
 
 
 def _sign(secret: bytes, issued: str) -> str:

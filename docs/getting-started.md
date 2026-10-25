@@ -58,6 +58,7 @@ chmod 600 .env
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | Push notifications off. |
 | `WEBAUTHN_RP_ID`, `WEBAUTHN_ORIGIN` | Passkeys use `localhost` and `http://localhost:8090`. |
 | `API_PUBLISH_ADDR` | The site is only on this computer: `127.0.0.1:8090`. |
+| `API_READ_TOKENS` | The native iPhone/Watch app (`apple/`) cannot log in. Put one or more read-only tokens here, comma-separated, each from `openssl rand -hex 32`. They can only read location, battery and home/away. |
 | `API_PUBLISH_PORT` | Port `8090`. |
 | `DEMO_MODE` | The ingestor tries to log in to Tractive. Set `DEMO_MODE=1` to skip that. |
 | `INGESTOR_DATABASE_URL` | Compose uses the Postgres container. Set this only if you want Supabase instead, and then start the ingestor alone. |

@@ -4,6 +4,8 @@ Jeden kontejner, jeden port: PWA volá same-origin `/api`, takže CORS je potře
 pro vývoj (`npm run dev`). Autentizace: PIN login (APP_PIN) -> podepsaná cookie
 `maja_session`; bez platné cookie vrací /api/* 401 (kromě login/logout/me/health/ready).
 PWA shell na / je veřejný – data jsou za loginem. Bez APP_PIN je auth vypnutá.
+Nativní appky (iPhone/widget/Watch) se místo cookie hlásí read-only tokenem
+(`Authorization: Bearer`, API_READ_TOKENS) – jen GET na polohu, baterii a doma/venku.
 """
 
 from __future__ import annotations
@@ -42,8 +44,11 @@ from .auth import (
     PUBLIC_API_PATHS,
     SESSION_MAX_AGE,
     LoginRateLimiter,
+    bearer_token,
     check_pin,
+    check_read_token,
     make_token,
+    read_token_allows,
     verify_token,
 )
 from .config import ApiSettings, get_api_settings
@@ -198,6 +203,9 @@ def create_app(settings: ApiSettings | None = None, store: ApiStore | None = Non
         log.warning("api.auth_disabled", hint="APP_PIN není nastavený – API je bez přihlášení")
     limiter = LoginRateLimiter()
     app.state.login_limiter = limiter
+    read_tokens = settings.read_tokens
+    if read_tokens:
+        log.info("api.read_tokens_enabled", count=len(read_tokens))
 
     def is_authed(request: Request) -> bool:
         if not pin:
@@ -214,8 +222,24 @@ def create_app(settings: ApiSettings | None = None, store: ApiStore | None = Non
             and path.rstrip("/") not in PUBLIC_API_PATHS
             and not is_authed(request)
         ):
-            return JSONResponse(status_code=401, content={"detail": "Nepřihlášeno"},
-                                headers={"Cache-Control": "no-store"})
+            # Nativní appky: read-only Bearer token (API_READ_TOKENS), jen GET na čtecí endpointy.
+            token = bearer_token(request.headers.get("authorization"))
+            if token is not None and read_tokens:
+                ip = client_ip(request)
+                if limiter.blocked(ip):
+                    return JSONResponse(status_code=429, content={"detail": "Moc pokusů"},
+                                        headers={"Retry-After": str(int(limiter.window)), "Cache-Control": "no-store"})
+                if not check_read_token(read_tokens, token):
+                    limiter.fail(ip)
+                    log.warning("api.read_token_failed", ip=ip)
+                    return JSONResponse(status_code=401, content={"detail": "Neplatný token"},
+                                        headers={"Cache-Control": "no-store"})
+                if not read_token_allows(request.method, path.rstrip("/")):
+                    return JSONResponse(status_code=403, content={"detail": "Token je jen pro čtení"},
+                                        headers={"Cache-Control": "no-store"})
+            else:
+                return JSONResponse(status_code=401, content={"detail": "Nepřihlášeno"},
+                                    headers={"Cache-Control": "no-store"})
         resp = await call_next(request)
         # Data z API se nikdy nesmí brát z cache (prohlížeč, service worker, Cloudflare) – vždy čerstvá
         if (path == "/api" or path.startswith("/api/")) and "cache-control" not in resp.headers:

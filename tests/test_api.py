@@ -88,6 +88,12 @@ class FakeStore:
     async def in_home_zone(self, tracker_id: str) -> bool | None:
         return self.home
 
+    async def default_tracker(self) -> str | None:
+        return TRACKER
+
+    async def geofence_events(self, tracker_id: str, limit: int) -> list[dict[str, Any]]:
+        return []
+
 
 @unittest.skipUnless(HAVE_FASTAPI, "fastapi/httpx nejsou nainstalované")
 class ApiRoutesTest(unittest.TestCase):
@@ -270,6 +276,42 @@ class ApiAuthTest(unittest.TestCase):
             self.assertEqual(c.post("/api/login", json={"pin": "4321"}).status_code, 429)
             # jiná IP (za Cloudflare) není blokovaná
             r = c.post("/api/login", json={"pin": "4321"}, headers={"CF-Connecting-IP": "203.0.113.9"})
+            self.assertEqual(r.status_code, 200)
+
+    def make_tokens(self, tokens: str | None) -> TestClient:
+        settings = ApiSettings(_env_file=None, database_url=None, api_web_dist=Path("/nonexistent"),
+                               app_pin="4321", app_session_secret=self.SECRET, api_read_tokens=tokens)
+        return TestClient(create_app(settings, FakeStore()), base_url="https://testserver")
+
+    def test_read_token(self) -> None:
+        good = "a1" * 16
+        other = "b2" * 20
+        with self.make_tokens(f"{good}, {other}, short") as c:
+            for tok in (good, other):
+                h = {"Authorization": f"Bearer {tok}"}
+                for path in ("/api/pets", "/api/trackers", f"/api/trackers/{TRACKER}/latest",
+                             f"/api/trackers/{TRACKER}/positions", f"/api/trackers/{TRACKER}/health",
+                             "/api/geofence/state", "/api/geofence/events"):
+                    self.assertEqual(c.get(path, headers=h).status_code, 200, path)
+                # jen čtení: povely, nastavení, passkeys ani dokumentace tokenem nejdou
+                self.assertEqual(c.post(f"/api/trackers/{TRACKER}/commands", json={"command": "buzzer"},
+                                        headers=h).status_code, 403)
+                for path in (f"/api/trackers/{TRACKER}/commands", "/api/webauthn/credentials", "/api/docs"):
+                    self.assertEqual(c.get(path, headers=h).status_code, 403, path)
+                self.assertFalse(c.get("/api/me", headers=h).json()["authed"])
+            # krátký token ze seznamu se ignoruje, špatný token je 401
+            self.assertEqual(c.get("/api/pets", headers={"Authorization": "Bearer short"}).status_code, 401)
+            self.assertEqual(c.get("/api/pets", headers={"Authorization": f"Basic {good}"}).status_code, 401)
+
+    def test_read_token_disabled_and_rate_limited(self) -> None:
+        tok = "c3" * 16
+        with self.make_tokens(None) as c:
+            self.assertEqual(c.get("/api/pets", headers={"Authorization": f"Bearer {tok}"}).status_code, 401)
+        with self.make_tokens(tok) as c:
+            for _ in range(5):
+                self.assertEqual(c.get("/api/pets", headers={"Authorization": "Bearer " + "x" * 32}).status_code, 401)
+            self.assertEqual(c.get("/api/pets", headers={"Authorization": f"Bearer {tok}"}).status_code, 429)
+            r = c.get("/api/pets", headers={"Authorization": f"Bearer {tok}", "CF-Connecting-IP": "203.0.113.9"})
             self.assertEqual(r.status_code, 200)
 
     def test_static_shell_open(self) -> None:
