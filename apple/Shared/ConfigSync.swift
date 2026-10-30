@@ -11,6 +11,8 @@ final class ConfigSync: NSObject, WCSessionDelegate {
     static let shared = ConfigSync()
     private static let urlKey = "serverURL"
     private static let tokenKey = "token"
+    private static let homeLatKey = "homeLat"
+    private static let homeLngKey = "homeLng"
 
     func activate() {
         guard WCSession.isSupported() else { return }
@@ -26,6 +28,13 @@ final class ConfigSync: NSObject, WCSessionDelegate {
         var ctx: [String: Any] = [:]
         if let url = MajaSettings.serverURL { ctx[Self.urlKey] = url.absoluteString }
         if let token = Keychain.readToken() { ctx[Self.tokenKey] = token }
+        if let home = MajaSettings.homeCoordinate {
+            ctx[Self.homeLatKey] = home.latitude
+            ctx[Self.homeLngKey] = home.longitude
+        } else {
+            ctx[Self.homeLatKey] = NSNull()
+            ctx[Self.homeLngKey] = NSNull()
+        }
         try? s.updateApplicationContext(ctx)
     }
     #endif
@@ -55,6 +64,8 @@ final class ConfigSync: NSObject, WCSessionDelegate {
         guard !ctx.isEmpty else { return }
         MajaSettings.serverURL = (ctx[Self.urlKey] as? String).flatMap(URL.init(string:))
         Keychain.saveToken(ctx[Self.tokenKey] as? String)
+        MajaSettings.homeLatitude = (ctx[Self.homeLatKey] as? NSNumber)?.doubleValue
+        MajaSettings.homeLongitude = (ctx[Self.homeLngKey] as? NSNumber)?.doubleValue
         MajaSettings.lastSnapshot = nil
         WidgetCenter.shared.reloadAllTimelines()
         DispatchQueue.main.async { NotificationCenter.default.post(name: .majaConfigChanged, object: nil) }
