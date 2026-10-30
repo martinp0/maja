@@ -39,3 +39,11 @@ cd apple && xcodegen generate && open Maja.xcodeproj
 V Xcode u všech čtyř targetů nastav Team. Capabilities jsou už v `project.yml`:
 App Groups `group.cz.martinpohl.maja` a Keychain Sharing `cz.martinpohl.maja.shared`.
 Widget se obnovuje zhruba každých 15 minut (limit WidgetKitu). Appka v popředí každých 30 s.
+
+## Zkratky, Spotlight a tlačítko Akce (App Intents)
+
+- **Kde je pes** (`DogStatusIntent`): odpoví bez otevření appky (doma/venku, vzdálenost od domova, stáří polohy, baterie). Když server neodpoví, vezme poslední známý snapshot.
+- **Otevřít Máju** (`OpenDogIntent`): otevře mapu, hodí se na tlačítko Akce.
+- Obě jsou App Shortcuts, takže se po instalaci samy objeví ve Zkratkách a ve Spotlightu. Siri je umí v angličtině („Where is my dog in Mája“), čeština a slovenština jsou v `iOS/AppShortcuts.xcstrings` pro názvy ve Zkratkách.
+
+`Shared/PrivacyInfo.xcprivacy` je privacy manifest pro všechny čtyři cíle (UserDefaults v App Group: CA92.1, 1C8F.1; žádný tracking ani sběr dat).
