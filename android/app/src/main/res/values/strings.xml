@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Mája</string>
+    <string name="shortcut_server">Server</string>
+    <string name="setup_title">Mája</string>
+    <string name="setup_sub">Kam se má telefon připojit</string>
+    <string name="setup_url">Adresa serveru</string>
+    <string name="setup_url_hint">https://tracker.example.com</string>
+    <string name="setup_token">Read-only token (widget a záloha)</string>
+    <string name="setup_token_hint">openssl rand -hex 32</string>
+    <string name="setup_prefer_web">Vždy otevřít v aplikaci (pant a Flex Mode). Vypnuto a https použije Chrome, ať chodí Web Push hned.</string>
+    <string name="setup_alerts">Záložní upozornění (kontrola asi každých 15 minut). Okamžitý odchod zapni ve webové Máje.</string>
+    <string name="setup_save">Uložit a otevřít</string>
+    <string name="setup_help">Přihlášení frází a povely (LIVE, zvuk, světlo) jsou ve webové appce. Token umí jen číst polohu, baterii a doma/venku — stejný jako pro iPhone. Na kryt Z Flip přidej widget Mája.</string>
+    <string name="err_url">Adresa musí být http nebo https, jen server, bez cesty a bez hesla v URL.</string>
+    <string name="err_token">Token má aspoň 32 znaků, nebo ho nech prázdný.</string>
+    <string name="err_load">Server teď neodpovídá.</string>
+    <string name="err_ssl">Certifikát serveru nejde ověřit.</string>
+    <string name="retry">Zkusit znovu</string>
+    <string name="change_server">Změnit server</string>
+    <string name="widget_name">Mája</string>
+    <string name="widget_desc">Kde je pes a kolik má baterie. Bez mapy a bez souřadnic.</string>
+    <string name="widget_need_server">Nastav server (podrž ikonu → Server)</string>
+    <string name="widget_need_token">Doplň read-only token</string>
+    <string name="widget_loading">Načítám…</string>
+    <string name="widget_offline">Server nedostupný</string>
+    <string name="where_home">Doma</string>
+    <string name="where_away">Venku</string>
+    <string name="where_away_m">Venku · %1$d m</string>
+    <string name="where_escaped">Daleko od domova</string>
+    <string name="where_unknown">Poloha vůči domovu neznámá</string>
+    <string name="battery_pct">Baterie %1$d %%</string>
+    <string name="battery_unknown">Baterie neznámá</string>
+    <string name="seen_now">právě teď</string>
+    <string name="seen_min">před %1$d min</string>
+    <string name="seen_h">před %1$d h</string>
+    <string name="seen_never">zatím bez polohy</string>
+    <string name="channel_geofence">Doma a venku</string>
+    <string name="notify_home">%1$s je zpátky doma</string>
+    <string name="notify_away">%1$s odešla z domova</string>
+    <string name="notify_escaped">%1$s je daleko od domova</string>
+</resources>

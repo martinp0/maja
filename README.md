@@ -60,6 +60,8 @@ Do not commit the location history it stores.
 | `docker-compose.yml` | Postgres/PostGIS + ingestor + API, aimed at a Raspberry Pi |
 | `deploy/` | Docker and systemd notes for a Pi |
 | `docs/getting-started.md` | Run it on your own computer |
+| `android/` | Sideloadable Galaxy app (Trusted Web Activity + foldables). See [RELEASE-SAMSUNG.md](RELEASE-SAMSUNG.md) |
+| `tizen/` | Living-room map for a Samsung TV (Tizen 6.5) |
 
 Deeper operator notes (Czech): [docs/operations.md](docs/operations.md).
 
@@ -121,7 +123,8 @@ with placeholders.
 | `WEBAUTHN_RP_ID`, `WEBAUTHN_ORIGIN` | Passkey host. Default `localhost` and `http://localhost:8090`. On your own domain set both to that exact site. |
 | `DEMO_MODE` | `1` skips the Tractive login so you can look at `seed-demo` data. Leave unset for a real collar. |
 | `API_PUBLISH_ADDR` | Host address for port 8090. Default `127.0.0.1`. |
-| `API_READ_TOKENS` | Optional, comma-separated read-only tokens (≥ 32 chars, `openssl rand -hex 32`) for the native iPhone/Watch app in `apple/`. GET-only on location, battery and home state. Empty = off. |
+| `API_READ_TOKENS` | Optional, comma-separated read-only tokens (≥ 32 chars, `openssl rand -hex 32`) for the iPhone/Watch app, the Galaxy widget and the TV. GET-only on location, battery and home state. Empty = off. |
+| `ANDROID_SHA256_CERT_FINGERPRINTS` | Optional SHA-256 signing fingerprints so `/.well-known/assetlinks.json` lets the Galaxy app open fullscreen. Empty = that URL is 404. Not a secret, but per-keystore, so it stays in `.env`. |
 
 `VAPID_SUBJECT` defaults to `mailto:you@example.com` when unset. Set a real
 `mailto:` in `.env` before you rely on push.

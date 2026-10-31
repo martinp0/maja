@@ -321,6 +321,38 @@ class ApiAuthTest(unittest.TestCase):
                 self.assertEqual(c.get("/").status_code, 200)
                 self.assertEqual(c.get("/api/pets").status_code, 401)
 
+    def test_assetlinks_hidden_until_configured(self) -> None:
+        from tractive_api.config import normalize_cert_fingerprint
+
+        self.assertIsNone(normalize_cert_fingerprint("abcd"))
+        self.assertIsNone(normalize_cert_fingerprint(""))
+        fp = "ab" * 32
+        pretty = normalize_cert_fingerprint(fp)
+        assert pretty is not None
+        self.assertEqual(pretty, ":".join(fp[i : i + 2].upper() for i in range(0, 64, 2)))
+        self.assertEqual(normalize_cert_fingerprint(pretty), pretty)
+
+        with self.make() as c:
+            # i s PINem je soubor veřejný (Chrome ho musí stáhnout bez cookie) — dokud otisk není, 404
+            self.assertEqual(c.get("/.well-known/assetlinks.json").status_code, 404)
+        settings = ApiSettings(
+            _env_file=None,
+            database_url=None,
+            api_web_dist=Path("/nonexistent"),
+            app_pin="4321",
+            app_session_secret=self.SECRET,
+            android_sha256_cert_fingerprints=f"{fp}, not-a-fingerprint, {pretty}",
+        )
+        with TestClient(create_app(settings, FakeStore()), base_url="https://testserver") as c:
+            r = c.get("/.well-known/assetlinks.json")
+            self.assertEqual(r.status_code, 200)
+            self.assertIn("application/json", r.headers["content-type"])
+            body = r.json()
+            self.assertEqual(body[0]["target"]["package_name"], "cz.martinpohl.maja")
+            self.assertEqual(body[0]["target"]["sha256_cert_fingerprints"], [pretty])
+            self.assertIn("delegate_permission/common.handle_all_urls", body[0]["relation"])
+            self.assertEqual(c.get("/api/pets").status_code, 401)
+
 
 @unittest.skipUnless(HAVE_FASTAPI and os.environ.get("TEST_DATABASE_URL"), "TEST_DATABASE_URL není nastavené")
 class PgApiStoreTest(unittest.IsolatedAsyncioTestCase):

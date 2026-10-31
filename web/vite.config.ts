@@ -15,9 +15,14 @@ export default defineConfig({
         short_name: "Mája",
         description: "Poloha, aktivita a povely pro Májin Tractive tracker",
         lang: "cs",
+        id: "/",
         start_url: "/",
         scope: "/",
         display: "standalone",
+        // Žádný zámek orientace: Flip, Fold i rozdělené okno se smí otáčet.
+        orientation: "any",
+        display_override: ["standalone", "window-controls-overlay"],
+        categories: ["navigation", "lifestyle"],
         background_color: "#f2f2f7",
         theme_color: "#f2f2f7",
         icons: [

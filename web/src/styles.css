@@ -656,14 +656,18 @@ h1, h2, h3, p { margin: 0; }
 }
 
 /* Notebook a širší: pevný panel vlevo, mapa vpravo na celou výšku.
-   iPhone a iPad na výšku (pod 900 px) zůstávají u spodního listu. */
+   iPhone a iPad na výšku (pod 900 px) zůstávají u spodního listu.
+   Flex (půlka Flipu) a kryt mají vlastní mřížku níž. Fold (book) taky, ať sloupec
+   nekončí na pantu. */
 @media (min-width: 900px) {
-  .shell {
+  html:not([data-fold="flex"]):not([data-fold="cover"]) .shell {
     display: grid;
-    grid-template-columns: 392px minmax(0, 1fr);
     grid-template-rows: minmax(0, 1fr);
   }
-  .sheet {
+  html:not([data-fold="flex"]):not([data-fold="cover"]):not([data-fold="book"]) .shell {
+    grid-template-columns: 392px minmax(0, 1fr);
+  }
+  html:not([data-fold="flex"]):not([data-fold="cover"]) .sheet {
     position: relative;
     grid-column: 1;
     grid-row: 1;
@@ -679,13 +683,13 @@ h1, h2, h3, p { margin: 0; }
     border-right: 0.5px solid var(--separator);
     padding-top: max(env(safe-area-inset-top), env(titlebar-area-height, 0px));
   }
-  .grabber { display: none; }
-  .sheet-head {
+  html:not([data-fold="flex"]):not([data-fold="cover"]) .grabber { display: none; }
+  html:not([data-fold="flex"]):not([data-fold="cover"]) .sheet-head {
     touch-action: auto;
     cursor: default;
     padding-top: 18px;
   }
-  .map-wrap {
+  html:not([data-fold="book"]) .map-wrap {
     position: relative;
     grid-column: 2;
     grid-row: 1;
@@ -694,8 +698,8 @@ h1, h2, h3, p { margin: 0; }
   }
   .map { position: absolute; inset: 0; }
   .map-scrim { display: none; }
-  .map-btn.desktop-only { display: grid; }
-  .map-buttons {
+  html:not([data-fold="flex"]):not([data-fold="cover"]) .map-btn.desktop-only { display: grid; }
+  html:not([data-fold="flex"]):not([data-fold="cover"]) .map-buttons {
     top: calc(max(env(safe-area-inset-top), env(titlebar-area-height, 0px)) + 16px);
     bottom: auto;
     right: 16px;
@@ -749,3 +753,135 @@ h1, h2, h3, p { margin: 0; }
 
 @keyframes settings-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes settings-out { to { opacity: 0; } }
+
+/* —— Galaxy Z Fold: mapa a detaily vedle sebe, obsah mimo pant —— */
+html[data-fold="book"] .shell {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  grid-template-columns: var(--seg-left, minmax(280px, 42%)) var(--hinge-size, 0px) var(--seg-right, minmax(0, 1fr));
+  background: #d8d8dc;
+}
+@media (prefers-color-scheme: dark) {
+  html[data-fold="book"] .shell,
+  html[data-fold="flex"] .shell { background: #000; }
+}
+@media (horizontal-viewport-segments: 2) {
+  html[data-fold="book"][data-segments="css"] .shell {
+    grid-template-columns:
+      env(viewport-segment-width 0 0)
+      minmax(0, 1fr)
+      env(viewport-segment-width 1 0);
+  }
+}
+html[data-fold="book"] .sheet {
+  position: relative;
+  grid-column: 1;
+  grid-row: 1;
+  top: auto; left: auto; right: auto; bottom: auto;
+  width: auto; height: auto;
+  margin: 0;
+  border-radius: 0;
+  box-shadow: none;
+  transform: none !important;
+  z-index: 2;
+  border-right: 0;
+  padding-top: max(env(safe-area-inset-top), env(titlebar-area-height, 0px));
+  min-width: 0;
+  min-height: 0;
+}
+html[data-fold="book"] .map-wrap {
+  position: relative;
+  grid-column: 3;
+  grid-row: 1;
+  min-width: 0;
+  min-height: 0;
+}
+html[data-fold="book"] .grabber { display: none; }
+html[data-fold="book"] .sheet-head { touch-action: auto; cursor: default; padding-top: 18px; }
+html[data-fold="book"] .map-btn.desktop-only { display: grid; }
+html[data-fold="book"] .map-scrim { display: none; }
+html[data-fold="book"] .leaflet-bottom.leaflet-left { bottom: 0 !important; }
+
+/* —— Galaxy Z Flip, Flex Mode: mapa nahoře, ovládání dole, pant uprostřed —— */
+html[data-fold="flex"] .shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: var(--seg-top, 1fr) var(--hinge-size, 12px) var(--seg-bottom, 1fr);
+  background: #d8d8dc;
+}
+@media (vertical-viewport-segments: 2) {
+  html[data-fold="flex"][data-segments="css"] .shell {
+    grid-template-rows:
+      env(viewport-segment-height 0 0)
+      minmax(0, 1fr)
+      env(viewport-segment-height 1 0);
+  }
+}
+html[data-fold="flex"] .map-wrap {
+  position: relative;
+  grid-column: 1;
+  grid-row: 1;
+  min-width: 0;
+  min-height: 0;
+}
+html[data-fold="flex"] .sheet {
+  position: relative;
+  grid-column: 1;
+  grid-row: 3;
+  top: auto; left: auto; right: auto; bottom: auto;
+  width: auto; height: auto;
+  margin: 0;
+  border-radius: 0;
+  box-shadow: none;
+  transform: none !important;
+  z-index: 2;
+  min-width: 0;
+  min-height: 0;
+  padding-top: 8px;
+}
+html[data-fold="flex"] .grabber { display: none; }
+html[data-fold="flex"] .sheet-head { touch-action: auto; cursor: default; }
+html[data-fold="flex"] .map-buttons {
+  top: auto;
+  bottom: 12px;
+  right: max(12px, env(safe-area-inset-right));
+}
+html[data-fold="flex"] .map-btn.desktop-only { display: grid; }
+html[data-fold="flex"] .leaflet-bottom.leaflet-left { bottom: 0 !important; }
+
+/* —— Kryt Z Flip: pohled na jméno, doma/venku a baterii. Mapa je náhled. —— */
+html[data-fold="cover"] .shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: 42% minmax(0, 1fr);
+}
+html[data-fold="cover"] .map-wrap {
+  position: relative;
+  grid-row: 1;
+  min-height: 0;
+}
+html[data-fold="cover"] .sheet {
+  position: relative;
+  grid-row: 2;
+  top: auto; left: auto; right: auto; bottom: auto;
+  width: auto; height: auto;
+  margin: 0;
+  border-radius: 0;
+  box-shadow: none;
+  transform: none !important;
+  min-height: 0;
+}
+html[data-fold="cover"] .grabber,
+html[data-fold="cover"] .sheet-scroll,
+html[data-fold="cover"] .map-buttons,
+html[data-fold="cover"] .map-scrim { display: none; }
+html[data-fold="cover"] .sheet-head { touch-action: auto; cursor: default; padding: 10px 14px 12px; }
+html[data-fold="cover"] .sheet-title h1 { font-size: 26px; }
+html[data-fold="cover"] .seen-time { font-size: 20px; }
+html[data-fold="cover"] .leaflet-bottom.leaflet-left { bottom: 0 !important; }
+
+/* Malé vyskakovací okno (Samsung pop-up): ať se list vejde, když je okno nízké. */
+@media (max-width: 599px) and (max-height: 480px) {
+  html[data-fold="phone"] .sheet-title h1 { font-size: 22px; }
+  html[data-fold="phone"] .footnote { display: none; }
+}

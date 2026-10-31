@@ -645,6 +645,24 @@ def create_app(settings: ApiSettings | None = None, store: ApiStore | None = Non
     async def command_types() -> dict[str, Any]:
         return {"commands": sorted({a for a in COMMAND_ALIASES}), "actions": ["on", "off"]}
 
+    # Digital Asset Links pro Trusted Web Activity (Samsung / Chrome). Bez otisku v .env 404,
+    # ať se nepublikuje prázdný soubor. Není pod /api, takže heslo appky ho nechrání — otisk
+    # certifikátu je veřejný (je v APK).
+    @app.get("/.well-known/assetlinks.json")
+    def android_assetlinks() -> JSONResponse:
+        fps = settings.android_cert_fingerprints
+        if not fps:
+            raise HTTPException(status_code=404, detail="Android app links nejsou nastavené")
+        body = [{
+            "relation": ["delegate_permission/common.handle_all_urls"],
+            "target": {
+                "namespace": "android_app",
+                "package_name": "cz.martinpohl.maja",
+                "sha256_cert_fingerprints": fps,
+            },
+        }]
+        return JSONResponse(body, headers={"Cache-Control": "no-cache"})
+
     # ------------------------------------------------------------------ PWA
 
     dist = Path(settings.api_web_dist)

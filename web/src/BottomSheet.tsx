@@ -1,6 +1,6 @@
 import { PointerEvent, ReactNode, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { tick } from "./haptic";
-import { DESKTOP_MQ } from "./layout";
+import { currentFold, DESKTOP_MQ, isDesktop, type FoldName } from "./layout";
 
 export type Snap = "peek" | "mid" | "full";
 
@@ -17,16 +17,27 @@ function shellOf(node: HTMLElement | null): HTMLElement | null {
   return node?.closest(".shell") ?? null;
 }
 
-function useDesktop() {
-  const [desktop, setDesktop] = useState(() => window.matchMedia?.(DESKTOP_MQ).matches ?? false);
+function useChrome(): { pinned: boolean; fold: FoldName } {
+  const read = () => {
+    const fold = currentFold();
+    const wide = window.matchMedia?.(DESKTOP_MQ).matches ?? isDesktop();
+    return { fold, pinned: fold !== "phone" || wide };
+  };
+  const [chrome, setChrome] = useState(read);
   useEffect(() => {
+    const on = () => setChrome(read());
     const mq = window.matchMedia(DESKTOP_MQ);
-    const on = () => setDesktop(mq.matches);
     on();
     mq.addEventListener("change", on);
-    return () => mq.removeEventListener("change", on);
+    window.addEventListener("maja-fold", on);
+    window.addEventListener("resize", on);
+    return () => {
+      mq.removeEventListener("change", on);
+      window.removeEventListener("maja-fold", on);
+      window.removeEventListener("resize", on);
+    };
   }, []);
-  return desktop;
+  return chrome;
 }
 
 /** Spodní list ve stylu Apple Maps: tři polohy, táhnutí za hlavičku, zbytek se scrolluje.
@@ -40,7 +51,7 @@ export function BottomSheet({ snap, onSnap, head, children }: Props) {
   const [drag, setDrag] = useState<number | null>(null);
   const [stuck, setStuck] = useState(false);
   const dragRef = useRef<{ y: number; vis: number; t: number } | null>(null);
-  const desktop = useDesktop();
+  const { pinned, fold } = useChrome();
 
   useLayoutEffect(() => {
     const sheet = sheetRef.current;
@@ -68,9 +79,9 @@ export function BottomSheet({ snap, onSnap, head, children }: Props) {
   useLayoutEffect(() => {
     const shell = shellOf(sheetRef.current);
     if (!shell) return;
-    if (desktop) {
+    if (pinned) {
       shell.style.setProperty("--sheet-visible", "0px");
-      shell.dataset.layout = "desktop";
+      shell.dataset.layout = fold === "phone" ? "desktop" : fold;
       delete shell.dataset.snap;
       shell.classList.remove("dragging");
       return;
@@ -80,13 +91,13 @@ export function BottomSheet({ snap, onSnap, head, children }: Props) {
     shell.style.setProperty("--sheet-visible", `${Math.round(visible)}px`);
     shell.dataset.snap = snap;
     shell.classList.toggle("dragging", drag != null);
-  }, [visible, snap, drag, desktop]);
+  }, [visible, snap, drag, pinned, fold]);
 
   useEffect(() => {
-    if (!desktop) return;
+    if (!pinned) return;
     dragRef.current = null;
     setDrag(null);
-  }, [desktop]);
+  }, [pinned]);
 
   const finish = (clientY: number, time: number) => {
     const start = dragRef.current;
@@ -116,7 +127,7 @@ export function BottomSheet({ snap, onSnap, head, children }: Props) {
   };
 
   const onDown = (e: PointerEvent<HTMLDivElement>) => {
-    if (desktop) return;
+    if (pinned) return;
     if ((e.target as HTMLElement).closest("button, a, input")) return;
     e.currentTarget.setPointerCapture(e.pointerId);
     dragRef.current = { y: e.clientY, vis: visible, t: e.timeStamp };
@@ -140,7 +151,7 @@ export function BottomSheet({ snap, onSnap, head, children }: Props) {
       ref={sheetRef}
       className="sheet"
       style={
-        desktop
+        pinned
           ? undefined
           : {
               transform: height ? `translate3d(0, ${translate}px, 0)` : undefined,

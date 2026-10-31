@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<widget xmlns="http://www.w3.org/ns/widgets" xmlns:tizen="http://tizen.org/ns/widgets" id="http://martinpohl.cz/maja" version="0.1.0" viewmodes="maximized">
+    <access origin="*" subdomains="true"/>
+    <tizen:application id="martinpohl.Maja" package="martinpohl" required_version="6.5"/>
+    <content src="index.html"/>
+    <feature name="http://tizen.org/feature/screen.size.normal.1920.1080"/>
+    <icon src="icon.png"/>
+    <name>Mája</name>
+    <description>Kde je pes. Mapa na televizi, jen čtení.</description>
+    <tizen:privilege name="http://tizen.org/privilege/internet"/>
+    <tizen:profile name="tv-samsung"/>
+    <tizen:setting screen-orientation="landscape" context-menu="disable" background-support="disable" encryption="disable" install-location="auto" hwkey-event="enable"/>
+    <tizen:allow-navigation>*</tizen:allow-navigation>
+</widget>
