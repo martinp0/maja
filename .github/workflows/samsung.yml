@@ -36,11 +36,17 @@ jobs:
         with:
           distribution: temurin
           java-version: 17
-      - uses: android-actions/setup-android@v3
+      # ubuntu-latest already has the Android SDK. android-actions/setup-android@v3
+      # still runs `sdkmanager tools`, and current cmdline-tools no longer ship that package.
       - name: SDK packages
         run: |
-          yes | sdkmanager --licenses >/dev/null || true
-          sdkmanager --install "platforms;android-35" "build-tools;35.0.0"
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
+          SM="$(find "$SDK/cmdline-tools" -type f -name sdkmanager | sort | tail -1)"
+          test -n "$SM"
+          yes | "$SM" --sdk_root="$SDK" --licenses >/dev/null || true
+          "$SM" --sdk_root="$SDK" --install "platforms;android-35" "build-tools;35.0.0"
       - name: Ephemeral release keystore
         run: |
           keytool -genkeypair -keystore "$RUNNER_TEMP/maja-ci.keystore" -alias maja \
