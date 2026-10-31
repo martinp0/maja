@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="cs">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; img-src 'self' https: http: data:; connect-src https: http:; style-src 'self' 'unsafe-inline'; script-src 'self';"
+    />
+    <title>Mája</title>
+  </head>
+  <body>
+    <div id="stage">
+      <header>
+        <p class="kicker">Mája</p>
+        <div class="title-row">
+          <h1 id="name">Mája</h1>
+          <p id="place" class="place">Načítám</p>
+        </div>
+      </header>
+      <div id="map" class="focusable" tabindex="0" role="application" aria-label="Mapa"></div>
+      <aside>
+        <section class="stat">
+          <span class="label">Baterie</span>
+          <strong id="battery">–</strong>
+        </section>
+        <section class="stat">
+          <span class="label">Poslední poloha</span>
+          <strong id="seen">–</strong>
+          <span id="sensor" class="sub"></span>
+        </section>
+        <section class="stat">
+          <span class="label">Spojení</span>
+          <strong id="link">–</strong>
+        </section>
+        <div class="actions">
+          <button id="fit" class="focusable" type="button">Celá trasa</button>
+          <button id="refresh" class="focusable" type="button">Obnovit</button>
+          <button id="server" class="focusable" type="button">Server</button>
+        </div>
+        <p id="banner" class="banner" hidden></p>
+        <p class="foot">Jen čtení. Povely zůstávají v telefonu.</p>
+      </aside>
+    </div>
+
+    <div id="setup" class="setup" hidden>
+      <form id="setup-form" class="setup-card">
+        <h2>Server</h2>
+        <p class="sub">Stejná adresa jako v prohlížeči a read-only token z <code>API_READ_TOKENS</code>.</p>
+        <label for="origin">Adresa</label>
+        <input id="origin" class="focusable" type="url" inputmode="url" autocomplete="off" placeholder="https://tracker.example.com" />
+        <label for="token">Token</label>
+        <input id="token" class="focusable" type="password" autocomplete="off" placeholder="openssl rand -hex 32" />
+        <p id="setup-error" class="banner" hidden></p>
+        <button id="save" class="focusable" type="submit">Uložit</button>
+      </form>
+    </div>
+    <script type="module" src="/src/tv/main.ts"></script>
+  </body>
+</html>

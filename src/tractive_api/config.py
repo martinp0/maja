@@ -6,6 +6,7 @@ vlastní proměnné mají prefix API_.
 
 from __future__ import annotations
 
+import re
 from functools import lru_cache
 from pathlib import Path
 
@@ -61,6 +62,11 @@ class ApiSettings(HomeGeofenceSettings):
     webauthn_origin: str = "http://localhost:8090"
     webauthn_rp_name: str = "Mája"
 
+    # SHA-256 otisk podpisu Android APK (keytool), víc otisků čárkou. Není to tajemství
+    # (je ve veřejném certifikátu), ale je jiné pro každý keystore, takže patří do .env.
+    # Prázdné = /.well-known/assetlinks.json vrací 404 a TWA zůstane s lištou prohlížeče.
+    android_sha256_cert_fingerprints: str = ""
+
     @property
     def webauthn_origins(self) -> list[str]:
         return [o.strip().rstrip("/") for o in self.webauthn_origin.split(",") if o.strip()]
@@ -100,6 +106,25 @@ class ApiSettings(HomeGeofenceSettings):
     @property
     def cors_origins(self) -> list[str]:
         return [o.strip() for o in self.api_cors_origins.split(",") if o.strip()]
+
+    @property
+    def android_cert_fingerprints(self) -> list[str]:
+        out: list[str] = []
+        seen: set[str] = set()
+        for part in self.android_sha256_cert_fingerprints.split(","):
+            fp = normalize_cert_fingerprint(part)
+            if fp and fp not in seen:
+                seen.add(fp)
+                out.append(fp)
+        return out
+
+
+def normalize_cert_fingerprint(value: str) -> str | None:
+    """`AA:BB:…` nebo holé hex z keytool na 32 bajtů SHA-256. Špatná délka = None."""
+    raw = re.sub(r"[^0-9a-fA-F]", "", value or "")
+    if len(raw) != 64:
+        return None
+    return ":".join(raw[i : i + 2].upper() for i in range(0, 64, 2))
 
 
 @lru_cache

@@ -58,7 +58,8 @@ chmod 600 .env
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | Push notifications off. |
 | `WEBAUTHN_RP_ID`, `WEBAUTHN_ORIGIN` | Passkeys use `localhost` and `http://localhost:8090`. |
 | `API_PUBLISH_ADDR` | The site is only on this computer: `127.0.0.1:8090`. |
-| `API_READ_TOKENS` | The native iPhone/Watch app (`apple/`) cannot log in. Put one or more read-only tokens here, comma-separated, each from `openssl rand -hex 32`. They can only read location, battery and home/away. |
+| `API_READ_TOKENS` | The iPhone/Watch app, the Galaxy widget and the Samsung TV cannot log in. Put one or more read-only tokens here, comma-separated, each from `openssl rand -hex 32`. They can only read location, battery and home/away. |
+| `ANDROID_SHA256_CERT_FINGERPRINTS` | The Galaxy app shows Chrome's address bar. Put the APK signing fingerprint here for a fullscreen window. See [RELEASE-SAMSUNG.md](../RELEASE-SAMSUNG.md). |
 | `API_PUBLISH_PORT` | Port `8090`. |
 | `DEMO_MODE` | The ingestor tries to log in to Tractive. Set `DEMO_MODE=1` to skip that. |
 | `INGESTOR_DATABASE_URL` | Compose uses the Postgres container. Set this only if you want Supabase instead, and then start the ingestor alone. |
@@ -279,6 +280,7 @@ Passkeys do not work on that plain `http://100.x…` URL. Use HTTPS (Tailscale's
 The site is a PWA.
 
 - Android (Chrome): menu → **Install app** or **Add to Home screen**.
+- Samsung Galaxy, including Z Flip and Z Fold: the same PWA, or a sideloaded app from [RELEASE-SAMSUNG.md](../RELEASE-SAMSUNG.md). That page also covers the living-room TV.
 - iPhone (Safari): Share → **Add to Home Screen**.
 
 Push on iOS (16.4 and newer) is delivered only to the icon you added, and only over HTTPS. A phone cannot use your laptop's `http://localhost`.

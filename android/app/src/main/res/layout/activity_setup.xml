@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="24dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/setup_title"
+            android:textColor="@color/text"
+            android:textSize="34sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="@string/setup_sub"
+            android:textColor="@color/muted"
+            android:textSize="16sp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="28dp"
+            android:labelFor="@id/url"
+            android:text="@string/setup_url"
+            android:textColor="@color/text"
+            android:textSize="13sp" />
+
+        <EditText
+            android:id="@+id/url"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:autofillHints="url"
+            android:background="@drawable/field_bg"
+            android:hint="@string/setup_url_hint"
+            android:importantForAutofill="yes"
+            android:inputType="textUri"
+            android:minHeight="50dp"
+            android:padding="14dp"
+            android:textColor="@color/text"
+            android:textColorHint="@color/muted" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:labelFor="@id/token"
+            android:text="@string/setup_token"
+            android:textColor="@color/text"
+            android:textSize="13sp" />
+
+        <EditText
+            android:id="@+id/token"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:background="@drawable/field_bg"
+            android:hint="@string/setup_token_hint"
+            android:importantForAutofill="no"
+            android:inputType="textPassword"
+            android:minHeight="50dp"
+            android:padding="14dp"
+            android:textColor="@color/text"
+            android:textColorHint="@color/muted" />
+
+        <CheckBox
+            android:id="@+id/prefer_web"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="18dp"
+            android:text="@string/setup_prefer_web"
+            android:textColor="@color/text" />
+
+        <CheckBox
+            android:id="@+id/alerts"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/setup_alerts"
+            android:textColor="@color/text" />
+
+        <TextView
+            android:id="@+id/error"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:textColor="#D70015"
+            android:visibility="gone" />
+
+        <Button
+            android:id="@+id/save"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:backgroundTint="@color/tint"
+            android:minHeight="50dp"
+            android:text="@string/setup_save"
+            android:textAllCaps="false"
+            android:textColor="#FFFFFF" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="18dp"
+            android:text="@string/setup_help"
+            android:textColor="@color/muted"
+            android:textSize="14sp" />
+    </LinearLayout>
+</ScrollView>

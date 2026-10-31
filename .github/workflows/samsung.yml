@@ -1,0 +1,79 @@
+name: Samsung
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Typecheck and fold layout tests
+        working-directory: web
+        run: npm ci --no-audit --no-fund && npm run typecheck && npm run test:fold
+      - name: Tizen package
+        run: chmod +x tizen/build.sh && ./tizen/build.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: maja-tizen
+          path: tizen/dist/Maja.wgt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: samsung-screenshots
+          path: docs/screenshots/samsung/**
+
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: android-actions/setup-android@v3
+      - name: SDK packages
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager --install "platforms;android-35" "build-tools;35.0.0"
+      - name: Ephemeral release keystore
+        run: |
+          keytool -genkeypair -keystore "$RUNNER_TEMP/maja-ci.keystore" -alias maja \
+            -keyalg RSA -keysize 2048 -validity 3650 \
+            -storepass "$MAJA_KEYSTORE_PASSWORD" -keypass "$MAJA_KEY_PASSWORD" \
+            -dname "CN=Maja CI, O=Maja, C=CZ"
+        env:
+          MAJA_KEYSTORE_PASSWORD: ci-not-for-release
+          MAJA_KEY_PASSWORD: ci-not-for-release
+      - name: Unit tests, APK and AAB
+        working-directory: android
+        run: chmod +x ./gradlew && ./gradlew :app:testDebugUnitTest :app:assembleDebug :app:assembleRelease :app:bundleRelease --stacktrace
+        env:
+          MAJA_KEYSTORE_PATH: ${{ runner.temp }}/maja-ci.keystore
+          MAJA_KEYSTORE_PASSWORD: ci-not-for-release
+          MAJA_KEY_ALIAS: maja
+          MAJA_KEY_PASSWORD: ci-not-for-release
+          MAJA_VERSION_CODE: "1"
+          MAJA_VERSION_NAME: 0.1.0
+      - uses: actions/upload-artifact@v4
+        with:
+          name: maja-android
+          path: |
+            android/app/build/outputs/apk/debug/*.apk
+            android/app/build/outputs/apk/release/*.apk
+            android/app/build/outputs/bundle/release/*.aab
+
+  api:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: API tests
+        run: pip install -e '.[dev]' && python -m unittest discover -s tests -v

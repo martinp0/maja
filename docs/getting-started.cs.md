@@ -56,7 +56,8 @@ chmod 600 .env
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | Push vypnutý. |
 | `WEBAUTHN_RP_ID`, `WEBAUTHN_ORIGIN` | Passkey použije `localhost` a `http://localhost:8090`. |
 | `API_PUBLISH_ADDR` | Web jen na tomhle počítači: `127.0.0.1:8090`. |
-| `API_READ_TOKENS` | Nativní appka pro iPhone a Watch (`apple/`) se nepřihlašuje. Dej sem jeden nebo víc read-only tokenů oddělených čárkou, každý z `openssl rand -hex 32`. Umí jen číst polohu, baterii a doma/venku. |
+| `API_READ_TOKENS` | iPhone/Watch, widget na Galaxy a televize se nepřihlašují frází. Dej sem jeden nebo víc read-only tokenů oddělených čárkou, každý z `openssl rand -hex 32`. Umí jen číst polohu, baterii a doma/venku. |
+| `ANDROID_SHA256_CERT_FINGERPRINTS` | Galaxy appka ukáže lištu Chrome. Sem dej otisk podpisu APK, ať je okno na celou obrazovku. Viz [RELEASE-SAMSUNG.md](../RELEASE-SAMSUNG.md). |
 | `API_PUBLISH_PORT` | Port `8090`. |
 | `DEMO_MODE` | Ingestor se zkouší přihlásit k Tractive. `DEMO_MODE=1` přihlášení přeskočí. |
 | `INGESTOR_DATABASE_URL` | Compose použije kontejner Postgres. Vyplň to jen pro Supabase a pak spouštěj samotný ingestor. |
@@ -277,6 +278,7 @@ Passkey na tom holém `http://100.x…` nefunguje. Potřebuješ HTTPS (HTTPS jm�
 Web je PWA.
 
 - Android (Chrome): menu → **Nainstalovat aplikaci** nebo **Přidat na plochu**.
+- Samsung Galaxy včetně Z Flip a Z Fold: stejná PWA, nebo sideload z [RELEASE-SAMSUNG.md](../RELEASE-SAMSUNG.md). Tam je i televize v obýváku.
 - iPhone (Safari): Sdílet → **Přidat na plochu**.
 
 Push na iOS (16.4 a novější) chodí jen na ikonu přidanou na plochu a jen přes HTTPS. Telefon neumí použít `http://localhost` z notebooku.
