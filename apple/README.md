@@ -16,13 +16,19 @@ zůstávají v PWA.
 Appka nepoužívá `APP_PIN` ani cookie. Na serveru nastav v `.env`:
 
 ```bash
-API_READ_TOKENS=$(openssl rand -hex 32)   # víc zařízení = víc tokenů oddělených čárkou
+API_READ_TOKENS=iphone=$(openssl rand -hex 32),watch=$(openssl rand -hex 32)
 docker compose up -d api
 ```
 
+Pořád jde i starý seznam bez jmen, oddělený čárkou. V logu je jen jméno (`iphone`, `watch`,
+u nepojmenovaných `token-1`), nikdy samotný token.
+
 Token projde jen `GET`/`HEAD` na `/api/pets`, `/api/trackers`, `/api/trackers/{id}/latest|positions|health`
-a `/api/geofence/state|events`. Cokoli jiného vrátí 403, špatný token 401 a počítá se do stejného
-rate-limitu jako špatný PIN. Bez `API_READ_TOKENS` se nic nemění.
+a `/api/geofence/state|events`. Cokoli jiného vrátí 403. Špatný token je 401 a počítá se do
+**vlastního** rate-limitu podle IP klienta (ne do limitu PINu). Platný token cizí neúspěchy nezamknou.
+Trasa (`/positions`) je pro token jen posledních 48 h. `/api/geofence/state` neobsahuje souřadnice
+domova – kruh na mapě se kreslí z volitelné šířky a délky v nastavení appky (jen na zařízení).
+Bez `API_READ_TOKENS` se nic nemění.
 
 V appce: ⚙︎ → adresa serveru (https, mimo LAN) + token → **Ověřit připojení** → **Uložit**.
 Token se ukládá jen do Klíčenky (`kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly`, sdílená skupina

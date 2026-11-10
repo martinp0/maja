@@ -72,9 +72,28 @@ struct MajaAPI: Sendable {
         let since: Date?
         let distance_m: Double?
         let home_radius_m: Double?
+        /// Nil for read tokens: the server omits home coordinates. The map circle then uses
+        /// `MajaSettings` (typed on this device), not the API.
         let home: Home?
         let in_home_zone: Bool?
         let escaped: Bool?
+
+        private enum CodingKeys: String, CodingKey {
+            case enabled, state, since, distance_m, home_radius_m, home, in_home_zone, escaped
+        }
+
+        init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            enabled = try c.decodeIfPresent(Bool.self, forKey: .enabled) ?? false
+            state = try c.decodeIfPresent(String.self, forKey: .state)
+            since = try c.decodeIfPresent(Date.self, forKey: .since)
+            distance_m = try c.decodeIfPresent(Double.self, forKey: .distance_m)
+            home_radius_m = try c.decodeIfPresent(Double.self, forKey: .home_radius_m)
+            // A missing, null, or malformed `home` must not drop state and distance.
+            home = try? c.decodeIfPresent(Home.self, forKey: .home)
+            in_home_zone = try c.decodeIfPresent(Bool.self, forKey: .in_home_zone)
+            escaped = try c.decodeIfPresent(Bool.self, forKey: .escaped)
+        }
     }
 
     // MARK: Snapshot
@@ -103,8 +122,8 @@ struct MajaAPI: Sendable {
             escaped: geo?.escaped ?? false,
             stateSince: geo?.since,
             distanceFromHomeM: geo?.distance_m,
-            homeLatitude: geo?.home?.lat,
-            homeLongitude: geo?.home?.lng,
+            homeLatitude: geo?.home?.lat ?? MajaSettings.homeLatitude,
+            homeLongitude: geo?.home?.lng ?? MajaSettings.homeLongitude,
             homeRadiusM: geo?.home_radius_m,
             fetchedAt: Date()
         )

@@ -90,7 +90,8 @@ services:
       API_HOST: 0.0.0.0
       API_PORT: "8090"
       API_WEB_DIST: /app/web/dist
-      API_CORS_ORIGINS: ${API_CORS_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173}
+      # Prázdné nebo nenastavené = žádný CORS. `:-default` by v produkci zapnul localhost:5173 s credentials.
+      API_CORS_ORIGINS: ${API_CORS_ORIGINS-}
       API_DB_POOL_MAX: ${API_DB_POOL_MAX:-3}
       # Geofence doma/venku – hodnoty jen z .env (souřadnice domova NIKDY do gitu). Prázdné = vypnuto.
       HOME_LAT: ${HOME_LAT:-}
@@ -105,6 +106,7 @@ services:
       APP_PIN: ${APP_PIN:-}
       APP_SESSION_SECRET: ${APP_SESSION_SECRET:-}
       # Read-only tokeny pro nativní appky (iPhone/Watch, Galaxy widget, TV) – jen v .env. Prázdné = vypnuto.
+      # `jméno=token` (čárkami) nebo starý seznam tokenů. Do logu jde jen jméno.
       API_READ_TOKENS: ${API_READ_TOKENS:-}
       # Otisk podpisu APK pro /.well-known/assetlinks.json (TWA bez lišty). Není tajemství. Prázdné = 404.
       ANDROID_SHA256_CERT_FINGERPRINTS: ${ANDROID_SHA256_CERT_FINGERPRINTS:-}

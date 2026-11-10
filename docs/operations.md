@@ -152,13 +152,24 @@ běžící ingestor (Tractive API volá dál jen on). Do kontejneru `api` se ned
 | `GET /api/pets` | psi + `tracker_id` (bez `home_location`) |
 | `GET /api/trackers` | trackery + poslední stav (baterie, `state`/`state_reason`, `sensor_used`, `last_position_ts`, jméno psa) |
 | `GET /api/trackers/{id}/latest` | poslední poloha (`lat`, `lng`, `accuracy_m`, `ts`, `sensor_used`) + poslední hw_report (baterie, stav) + `in_home_zone` |
-| `GET /api/trackers/{id}/positions?since=<ISO>&limit=N` | trasa chronologicky; default posledních 24 h, `limit` default 2000, strop `API_POSITIONS_MAX_LIMIT` (5000); `since` bez zóny = UTC |
+| `GET /api/trackers/{id}/positions?since=<ISO>&limit=N` | trasa chronologicky; default posledních 24 h, `limit` default 2000, strop `API_POSITIONS_MAX_LIMIT` (5000); `since` bez zóny = UTC. Read-only token: `since` se ořízne na posledních 48 h a `limit` na 2000 |
 | `GET /api/trackers/{id}/health?days=7` | `health_daily` (aktivní minuty vs. cíl, spánek den/noc/klid, stavy) – `latest` + posledních N dní |
 | `GET /api/trackers/{id}/commands?limit=N` | poslední povely se stavem (`queued/sending/sent/done/deferred/failed`, `last_error`) |
 | `POST /api/trackers/{id}/commands` | body `{"command": "live\|buzzer\|led", "action": "on\|off"}` (validace `commands.parse_command`) → 201 + řádek povelu (`id`, `status: queued`, `in_home_zone`, `note`) |
 | `GET /api/docs` | Swagger UI |
 
 Neznámý tracker = 404, nevalidní povel = 422, nedostupná DB = 503.
+
+Read-only token (`API_READ_TOKENS`, `jméno=token` nebo čárkami oddělený seznam) má vlastní rate limit
+podle IP klienta. `CF-Connecting-IP` a `X-Forwarded-For` se berou jen když TCP peer je lokální proxy
+(loopback nebo docker bridge `172.16.0.0/12`). Platný token se kvůli cizím neúspěchům nezamítne a do
+logu jde jen jeho jméno. Z `/api/geofence/state` a podobných odpovědí token nedostane souřadnice domova
+(cookie po PINu ano). Žádná změna schématu DB.
+
+Odpovědi API i PWA nesou `Content-Security-Policy` (mapové dlaždice `tile.openstreetmap.org`, inline
+styly kvůli Leafletu, `frame-ancestors 'none'`), `X-Content-Type-Options: nosniff` a
+`Referrer-Policy: no-referrer`. `Strict-Transport-Security` nastavuje edge (Cloudflare); aplikace ho
+nepřidává ani nemaže.
 
 ### PWA (`web/`)
 
@@ -206,7 +217,7 @@ Heslo (`APP_PIN`) zůstává jako záloha. Po přihlášení heslem appka nabíd
 platform authenticator, userVerification=required); karta „Přihlášení a Face ID“ ukazuje a maže passkeys.
 Passkey funguje jen na `WEBAUTHN_RP_ID` (v Dockeru bez nastavení `localhost`, tedy `http://localhost:8090`) – ne na jiné adrese, než na které passkey vznikl. Na Tailscale IP nebo v LAN je potřeba HTTPS a origin v `.env`.
 Endpointy: `POST /api/webauthn/register/options|verify` (jen přihlášený), `POST /api/webauthn/login/options|verify`
-(veřejné, stejný rate limiter jako `/api/login`), `GET /api/webauthn/credentials`,
+(veřejné, stejný per-IP rate limiter jako `/api/login`; read-only token má vlastní limiter), `GET /api/webauthn/credentials`,
 `POST /api/webauthn/credentials/{id}/delete`; `/api/me` vrací `passkey_count`. Tabulka `webauthn_credentials`
 (jen veřejné klíče) → po nasazení `init-db`.
 
@@ -240,7 +251,7 @@ a v `docker-compose.yml` odkomentuj `additional_contexts: webdist: ./web/dist` �
 | `API_PUBLISH_ADDR`, `API_PUBLISH_PORT` | kde compose publikuje port appky na hostu (default `127.0.0.1:8090`; pro telefon Tailscale IP Pi) |
 | `API_HOST`, `API_PORT` | kde uvicorn poslouchá (default `127.0.0.1:8090`; v Dockeru `0.0.0.0:8090`) |
 | `API_WEB_DIST` | adresář s buildem PWA (default `web/dist`; v image `/app/web/dist`); chybí = jen `/api` |
-| `API_CORS_ORIGINS` | čárkami oddělené originy pro CORS (default dev server `:5173`) |
+| `API_CORS_ORIGINS` | čárkami oddělené originy pro CORS. Prázdné nebo nenastavené = žádný CORS (same-origin PWA). Dev server `:5173` sem dej jen když ho prohlížeč volá napřímo |
 | `API_DB_POOL_MIN`, `API_DB_POOL_MAX` | pool spojení API (default 1/3) |
 | `API_POSITIONS_MAX_LIMIT`, `API_POSITIONS_DEFAULT_HOURS` | strop bodů trasy (5000) a default okno (24 h) |
 | `VITE_API_BASE` | build arg PWA – base URL API (prázdné = `/api`) |

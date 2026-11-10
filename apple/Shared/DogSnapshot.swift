@@ -21,6 +21,7 @@ struct DogSnapshot: Codable, Equatable, Sendable {
     var stateSince: Date?
     /// Distance from home in metres (server-side, needs HOME_LAT/HOME_LON on the server).
     var distanceFromHomeM: Double?
+    /// Home circle. The read-token API does not send this; the app fills it from on-device settings.
     var homeLatitude: Double?
     var homeLongitude: Double?
     var homeRadiusM: Double?
