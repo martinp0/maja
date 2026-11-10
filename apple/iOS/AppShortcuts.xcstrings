@@ -1,0 +1,70 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "Where is my dog in ${applicationName}": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kde je pes v ${applicationName}"
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kde je pes v ${applicationName}"
+          }
+        }
+      }
+    },
+    "Check my dog in ${applicationName}": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zkontroluj psa v ${applicationName}"
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Skontroluj psa v ${applicationName}"
+          }
+        }
+      }
+    },
+    "${applicationName} status": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stav ${applicationName}"
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stav ${applicationName}"
+          }
+        }
+      }
+    },
+    "Open the dog map in ${applicationName}": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Otevři mapu psa v ${applicationName}"
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Otvor mapu psa v ${applicationName}"
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

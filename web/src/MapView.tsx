@@ -4,7 +4,7 @@ import "leaflet/dist/leaflet.css";
 import type { Position } from "./api";
 import { fmtTime, sensorLabel } from "./format";
 import { IconFit, IconLocate, IconMinus, IconPlus } from "./icons";
-import { DESKTOP_MQ, isDesktop } from "./layout";
+import { DESKTOP_MQ, mapIsUncovered } from "./layout";
 
 interface Props {
   latest: Position | null | undefined;
@@ -32,7 +32,7 @@ function prefersDark(): boolean {
 const TILE_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
 
 function readInset(): number {
-  if (isDesktop()) return 0;
+  if (mapIsUncovered()) return 0;
   const raw = getComputedStyle(document.querySelector(".shell") ?? document.documentElement).getPropertyValue(
     "--sheet-visible",
   );
@@ -120,10 +120,12 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView(
       }
     };
     layoutMq.addEventListener("change", onLayout);
+    window.addEventListener("maja-fold", onLayout);
     return () => {
       media.removeEventListener("change", onScheme);
       window.removeEventListener("resize", onResize);
       layoutMq.removeEventListener("change", onLayout);
+      window.removeEventListener("maja-fold", onLayout);
       map.remove();
       mapRef.current = null;
       layersRef.current = null;

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="server"
+        android:enabled="true"
+        android:shortcutShortLabel="@string/shortcut_server"
+        android:shortcutLongLabel="@string/shortcut_server">
+        <intent
+            android:action="cz.martinpohl.maja.SETUP"
+            android:targetPackage="cz.martinpohl.maja"
+            android:targetClass="cz.martinpohl.maja.SetupActivity" />
+    </shortcut>
+</shortcuts>

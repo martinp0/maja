@@ -10,3 +10,6 @@ cover third-party material that keeps its own terms:
   only to those library files, which are not vendored here.
 - The PostGIS database images (imresamu/postgis). PostGIS is GPL-2.0-or-later
   and runs as a separate program. This application talks to it over SQL.
+- The Android shell links to AndroidX and `android-browser-helper` (Apache-2.0).
+  Those libraries are not vendored; Gradle downloads them at build time.
+  The Tizen package bundles the web build (Leaflet stays BSD-2-Clause).

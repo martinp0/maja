@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Mája</string>
+    <string name="shortcut_server">Server</string>
+    <string name="setup_title">Mája</string>
+    <string name="setup_sub">Where this phone should connect</string>
+    <string name="setup_url">Server address</string>
+    <string name="setup_url_hint">https://tracker.example.com</string>
+    <string name="setup_token">Read-only token (widget and backup)</string>
+    <string name="setup_token_hint">openssl rand -hex 32</string>
+    <string name="setup_prefer_web">Always open inside the app (hinge and Flex Mode). Off, on https, uses Chrome so Web Push is immediate.</string>
+    <string name="setup_alerts">Backup alerts (a check about every 15 minutes). Turn on instant leave/return alerts inside the Mája website.</string>
+    <string name="setup_save">Save and open</string>
+    <string name="setup_help">The passphrase and commands (LIVE, sound, light) live in the website. The token can only read location, battery and home/away — the same one as the iPhone app. Add the Mája widget to a Z Flip cover screen.</string>
+    <string name="err_url">The address must be http or https, host only, no path and no password in the URL.</string>
+    <string name="err_token">The token needs at least 32 characters, or leave it empty.</string>
+    <string name="err_load">The server is not responding.</string>
+    <string name="err_ssl">The server certificate could not be verified.</string>
+    <string name="retry">Try again</string>
+    <string name="change_server">Change server</string>
+    <string name="widget_name">Mája</string>
+    <string name="widget_desc">Where the dog is and the battery. No map and no coordinates.</string>
+    <string name="widget_need_server">Set the server (hold the icon → Server)</string>
+    <string name="widget_need_token">Add a read-only token</string>
+    <string name="widget_loading">Loading…</string>
+    <string name="widget_offline">Server unreachable</string>
+    <string name="where_home">Home</string>
+    <string name="where_away">Out</string>
+    <string name="where_away_m">Out · %1$d m</string>
+    <string name="where_escaped">Far from home</string>
+    <string name="where_unknown">Home or away unknown</string>
+    <string name="battery_pct">Battery %1$d %%</string>
+    <string name="battery_unknown">Battery unknown</string>
+    <string name="seen_now">just now</string>
+    <string name="seen_min">%1$d min ago</string>
+    <string name="seen_h">%1$d h ago</string>
+    <string name="seen_never">no position yet</string>
+    <string name="channel_geofence">Home and away</string>
+    <string name="notify_home">%1$s is back home</string>
+    <string name="notify_away">%1$s left home</string>
+    <string name="notify_escaped">%1$s is far from home</string>
+</resources>

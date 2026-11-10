@@ -15,6 +15,24 @@ import { IconSettings } from "./icons";
 
 const OPEN = new Set(["queued", "sending", "sent", "deferred"]);
 
+function storedSnap(): Snap {
+  try {
+    const v = sessionStorage.getItem("maja-snap");
+    if (v === "peek" || v === "mid" || v === "full") return v;
+  } catch {
+    /* soukromý režim */
+  }
+  return "mid";
+}
+
+function storedSettings(): boolean {
+  try {
+    return sessionStorage.getItem("maja-settings") === "1";
+  } catch {
+    return false;
+  }
+}
+
 export default function App({ onLogout, offerPasskey = false }: { onLogout?: () => void; offerPasskey?: boolean }) {
   const trackers = usePolling(api.trackers, 5 * 60_000);
   const pets = usePolling(api.pets, 30 * 60_000);
@@ -74,8 +92,23 @@ export default function App({ onLogout, offerPasskey = false }: { onLogout?: () 
   const isHome = g?.enabled && g.state !== "unknown" ? g.state === "home" : latest.data?.in_home_zone;
 
   const mapRef = useRef<MapHandle>(null);
-  const [snap, setSnap] = useState<Snap>("mid");
-  const [settings, setSettings] = useState(false);
+  // Složení/rozevření někdy stránku znovu načte. Poslední list a nastavení zůstanou v session.
+  const [snap, setSnap] = useState<Snap>(storedSnap);
+  const [settings, setSettings] = useState(storedSettings);
+  useEffect(() => {
+    try {
+      sessionStorage.setItem("maja-snap", snap);
+    } catch {
+      /* ignore */
+    }
+  }, [snap]);
+  useEffect(() => {
+    try {
+      sessionStorage.setItem("maja-settings", settings ? "1" : "0");
+    } catch {
+      /* ignore */
+    }
+  }, [settings]);
   const [offline, setOffline] = useState(() => (typeof navigator !== "undefined" ? !navigator.onLine : false));
   useEffect(() => {
     const on = () => setOffline(false);
